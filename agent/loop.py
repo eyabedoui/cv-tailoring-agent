@@ -5,14 +5,19 @@ ReAct agent loop for the CV-tailoring agent.
 The loop follows:
 1. Ask the model for a decision.
 2. Execute the selected tool.
-3. Append the tool result as untrusted data.
-4. Check the stop rules.
-5. Repeat until the agent stops.
+3. Log the tool execution.
+4. Append the tool result as untrusted data.
+5. Check the stop rules.
+6. Repeat until the agent stops.
 """
 
 import json
+import time
+
+from datetime import datetime, timezone
 
 from agent.stop_rule import should_stop
+from agent.logger import AgentLogger
 from agent.tools.registry import TOOL_SCHEMAS, execute_tool
 
 
@@ -34,15 +39,19 @@ Rules:
 
 
 class AgentLoop:
-    def __init__(self, model):
+    def __init__(self, model, logger=None):
         """
         Initialize the agent.
 
         model must provide:
             call_model(messages, tools) -> dict
+
+        logger is optional. If omitted, a default AgentLogger
+        writes events to the logs/ directory.
         """
         self.model = model
         self.tools = TOOL_SCHEMAS
+        self.logger = logger or AgentLogger()
 
     def run(self, initial_messages=None):
         """
@@ -54,7 +63,6 @@ class AgentLoop:
             step_count: number of tool calls
             messages: complete conversation history
         """
-
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
@@ -94,6 +102,11 @@ class AgentLoop:
 
                 _, reason = should_stop(state)
 
+                self.logger.log_stop(
+                    step=state["step_count"],
+                    stop_reason=reason,
+                )
+
                 return {
                     "answer": answer,
                     "stop_reason": reason,
@@ -113,8 +126,7 @@ class AgentLoop:
             if not isinstance(arguments, dict):
                 raise ValueError("Tool arguments must be a dictionary.")
 
-            # Submission is forbidden until the human checkpoint
-            # is implemented and explicitly approves it.
+            # Submission is forbidden until human checkpoint.
             if tool_name == "submit_application":
                 raise PermissionError(
                     "Application submission is blocked. "
@@ -147,7 +159,10 @@ class AgentLoop:
 
             previous_call = current_call
 
-            # Execute the selected tool.
+            # Record start time and execute the tool.
+            start_timestamp = datetime.now(timezone.utc).isoformat()
+            start_counter = time.perf_counter()
+
             try:
                 result = execute_tool(tool_name, arguments)
             except Exception as error:
@@ -156,11 +171,25 @@ class AgentLoop:
                     "message": str(error),
                 }
 
-            # Update the match score when skill matching is used.
+            duration_ms = (
+                time.perf_counter() - start_counter
+            ) * 1000
+
+            # Update match score when skill matching is used.
             if tool_name == "match_skills" and "score" in result:
                 state["match_score"] = result["score"]
 
-            # Wrap the result as untrusted data.
+            # Log the tool execution.
+            self.logger.log_step(
+                step=state["step_count"],
+                tool_name=tool_name,
+                input_data=arguments,
+                output_data=result,
+                start_time=start_timestamp,
+                duration_ms=duration_ms,
+            )
+
+            # Wrap result as untrusted data.
             untrusted_result = (
                 '<tool_result untrusted="true">'
                 + json.dumps(result, ensure_ascii=False)
@@ -177,6 +206,11 @@ class AgentLoop:
             stop, reason = should_stop(state)
 
             if stop:
+                self.logger.log_stop(
+                    step=state["step_count"],
+                    stop_reason=reason,
+                )
+
                 return {
                     "answer": answer,
                     "stop_reason": reason,

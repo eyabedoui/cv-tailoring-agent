@@ -1,6 +1,7 @@
 
 import pytest
-
+import json
+from agent.logger import AgentLogger
 from agent.fake_model import FakeModel
 from agent.loop import AgentLoop
 
@@ -145,3 +146,37 @@ def test_agent_loop_blocks_submission_without_approval():
 
     with pytest.raises(PermissionError, match="Human approval"):
         agent.run()
+
+def test_agent_loop_automatically_logs_tool_calls_and_stop(tmp_path):
+    logger = AgentLogger(
+        log_dir=tmp_path,
+        run_id="integration_test",
+    )
+
+    model = FakeModel([
+        {
+            "type": "tool_call",
+            "tool_name": "read_master_cv",
+            "arguments": {},
+        },
+        {
+            "type": "final",
+            "content": "CV read successfully.",
+        },
+    ])
+
+    agent = AgentLoop(model, logger=logger)
+    result = agent.run()
+
+    with logger.log_file.open("r", encoding="utf-8") as file:
+        events = [json.loads(line) for line in file]
+
+    assert result["stop_reason"] == "done"
+    assert len(events) == 2
+
+    assert events[0]["event"] == "tool_call"
+    assert events[0]["tool_name"] == "read_master_cv"
+    assert events[0]["step"] == 1
+
+    assert events[1]["event"] == "stop"
+    assert events[1]["stop_reason"] == "done"
