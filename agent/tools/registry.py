@@ -8,17 +8,17 @@ and executes the selected tool.
 
 from pydantic import ValidationError
 
-from agent.tools import stubs
+from agent.tools import reads
 from agent.tools import writes
 from agent.errors import make_error, INVALID_ARGUMENTS, UNKNOWN_TOOL, BAD_RESPONSE
 from agent.tools.schemas import TOOL_SCHEMA_MAP
 
 
 TOOL_FUNCTIONS = {
-    "read_job_posting": stubs.read_job_posting,
-    "read_master_cv": stubs.read_master_cv,
-    "match_skills": stubs.match_skills,
-    "check_format": stubs.check_format,
+    "read_job_posting": reads.read_job_posting,
+    "read_master_cv": reads.read_master_cv,
+    "match_skills": reads.match_skills,
+    "check_format": reads.check_format,
     "save_tailored_cv": writes.save_tailored_cv,
     "submit_application": writes.submit_application,
 }

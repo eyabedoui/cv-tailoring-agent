@@ -8,3 +8,8 @@ logs/
 
 # Environment secrets
 .env
+
+# Sandbox runtime output (generated; not committed)
+sandbox/postings/
+sandbox/output/
+sandbox/state/
