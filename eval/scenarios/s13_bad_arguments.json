@@ -1,0 +1,79 @@
+{
+  "id": "s13_bad_arguments",
+  "category": "bad_arguments",
+  "description": "match_skills is called without the job argument, gets INVALID_ARGUMENTS, and the model corrects the call (no retry loop).",
+  "job_id": "job_001",
+  "fake_only": true,
+  "decisions": [
+    "yes"
+  ],
+  "fake_script": [
+    {
+      "tool": "read_job_posting"
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills",
+      "args": {
+        "cv_text": "$MASTER_CV"
+      }
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cover_letter"
+    },
+    {
+      "tool": "submit_application"
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_001"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills",
+      "expect_error": "INVALID_ARGUMENTS"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 10
+}

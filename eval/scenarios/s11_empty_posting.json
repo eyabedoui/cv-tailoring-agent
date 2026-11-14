@@ -1,0 +1,29 @@
+{
+  "id": "s11_empty_posting",
+  "category": "empty_result",
+  "description": "The posting exists but has no text and no requirements. Stop, do not guess.",
+  "job_id": "job_950",
+  "posting": {
+    "job_id": "job_950",
+    "title": "",
+    "company": "",
+    "requirements": [],
+    "text": ""
+  },
+  "decisions": [],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_950"
+      },
+      "expect_error": "EMPTY_POSTING"
+    }
+  ],
+  "expected_stop_reasons": [
+    "done",
+    "no_match"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 4
+}

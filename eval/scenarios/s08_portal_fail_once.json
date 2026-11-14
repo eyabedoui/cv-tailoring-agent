@@ -1,0 +1,60 @@
+{
+  "id": "s08_portal_fail_once",
+  "category": "fail_once",
+  "description": "First portal call fails (PORTAL_DOWN, retryable). The agent retries and finishes.",
+  "job_id": "job_004",
+  "fault_mode": "fail_once",
+  "decisions": [
+    "yes"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_004"
+      },
+      "expect_error": "PORTAL_DOWN"
+    },
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_004"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_004"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_004"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_004"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 10
+}

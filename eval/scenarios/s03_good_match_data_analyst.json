@@ -1,0 +1,52 @@
+{
+  "id": "s03_good_match_data_analyst",
+  "category": "success",
+  "description": "Perfect match (1.00), user approves, application is submitted.",
+  "job_id": "job_004",
+  "decisions": [
+    "yes"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_004"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_004"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_004"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_004"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 8
+}

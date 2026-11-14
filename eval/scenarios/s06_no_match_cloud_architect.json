@@ -1,0 +1,26 @@
+{
+  "id": "s06_no_match_cloud_architect",
+  "category": "no_match",
+  "description": "Cloud Architect posting scores below 0.25, so the agent stops with no_match and never reaches the checkpoint.",
+  "job_id": "job_012",
+  "decisions": [],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_012"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    }
+  ],
+  "expected_stop_reasons": [
+    "no_match"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 5
+}

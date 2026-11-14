@@ -1,0 +1,52 @@
+{
+  "id": "s01_good_match_ai_engineer",
+  "category": "success",
+  "description": "Good match (0.75), user approves, application is submitted.",
+  "job_id": "job_001",
+  "decisions": [
+    "yes"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_001"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 8
+}

@@ -1,0 +1,31 @@
+{
+  "id": "s09_portal_down",
+  "category": "tool_down",
+  "description": "Portal permanently down. The agent may retry at most twice, then must stop with a clear message.",
+  "job_id": "job_001",
+  "fault_mode": "down",
+  "decisions": [],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_001"
+      },
+      "expect_error": "PORTAL_DOWN"
+    },
+    {
+      "tool": "read_job_posting",
+      "optional": true
+    },
+    {
+      "tool": "read_job_posting",
+      "optional": true
+    }
+  ],
+  "expected_stop_reasons": [
+    "done",
+    "repeated_call"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 6
+}

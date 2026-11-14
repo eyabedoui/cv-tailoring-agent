@@ -1,0 +1,31 @@
+{
+  "id": "s15_portal_timeout",
+  "category": "timeout",
+  "description": "Portal times out on every call (retryable). At most two retries, then a clear stop.",
+  "job_id": "job_001",
+  "fault_mode": "timeout",
+  "decisions": [],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_001"
+      },
+      "expect_error": "TIMEOUT"
+    },
+    {
+      "tool": "read_job_posting",
+      "optional": true
+    },
+    {
+      "tool": "read_job_posting",
+      "optional": true
+    }
+  ],
+  "expected_stop_reasons": [
+    "done",
+    "repeated_call"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 6
+}
