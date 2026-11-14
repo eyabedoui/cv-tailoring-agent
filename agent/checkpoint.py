@@ -7,6 +7,9 @@ explicit human approval before submission can proceed.
 """
 
 import difflib
+import threading
+
+from agent.config import CHECKPOINT_TIMEOUT_SECONDS
 
 
 class HumanApprovalCheckpoint:
@@ -17,6 +20,7 @@ class HumanApprovalCheckpoint:
         scripted_decisions=None,
         input_fn=input,
         output_fn=print,
+        timeout_seconds=CHECKPOINT_TIMEOUT_SECONDS,
     ):
         if auto_approve and auto_reject:
             raise ValueError(
@@ -34,10 +38,12 @@ class HumanApprovalCheckpoint:
 
         self.input_fn = input_fn
         self.output_fn = output_fn
+        self.timeout_seconds = timeout_seconds
 
         # Stored for audit logging.
         self.last_review_text = None
         self.last_decision = None
+        self.timed_out = False
 
     def build_review_text(
         self,
@@ -120,18 +126,43 @@ class HumanApprovalCheckpoint:
 
             return decision
 
-        while True:
-            answer = self.input_fn(
-                "Approve submission? Enter yes or no: "
-            ).strip().lower()
+        # Interactive mode: run input_fn in a daemon thread so we can
+        # apply a timeout without blocking forever.
+        result_holder = [None]
+        done_event = threading.Event()
 
-            if answer in ("yes", "y"):
-                return True
+        def _ask():
+            while True:
+                answer = self.input_fn(
+                    "Approve submission? Enter yes or no: "
+                ).strip().lower()
 
-            if answer in ("no", "n"):
-                return False
+                if answer in ("yes", "y"):
+                    result_holder[0] = True
+                    done_event.set()
+                    return
 
-            self.output_fn("Please enter yes or no.")
+                if answer in ("no", "n"):
+                    result_holder[0] = False
+                    done_event.set()
+                    return
+
+                self.output_fn("Please enter yes or no.")
+
+        thread = threading.Thread(target=_ask, daemon=True)
+        thread.start()
+
+        answered = done_event.wait(timeout=self.timeout_seconds)
+
+        if not answered:
+            self.output_fn(
+                f"\nCheckpoint timed out after {self.timeout_seconds}s. "
+                "Treating as rejected."
+            )
+            self.timed_out = True
+            return False
+
+        return result_holder[0]
 
     def request_approval(
         self,
@@ -147,8 +178,11 @@ class HumanApprovalCheckpoint:
 
         Returns:
             True: Human approved submission.
-            False: Human rejected submission.
+            False: Human rejected submission (or timed out).
         """
+
+        # Reset per-request state.
+        self.timed_out = False
 
         review_text = self.build_review_text(
             job_title=job_title,
@@ -169,7 +203,10 @@ class HumanApprovalCheckpoint:
         # Store the decision for audit logging.
         self.last_decision = approved
 
-        decision_text = "APPROVED" if approved else "REJECTED"
+        if self.timed_out:
+            decision_text = "TIMEOUT"
+        else:
+            decision_text = "APPROVED" if approved else "REJECTED"
 
         self.output_fn(f"Human decision: {decision_text}")
 
