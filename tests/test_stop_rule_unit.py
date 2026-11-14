@@ -77,3 +77,30 @@ def test_threshold_boundary_does_not_stop():
 
     assert stop is False
     assert reason is None
+
+
+def test_stops_on_checkpoint_timeout():
+    state = {
+        "step_count": 3,
+        "checkpoint_timed_out": True,
+    }
+
+    stop, reason = should_stop(state)
+
+    assert stop is True
+    assert reason == "checkpoint_timeout"
+
+
+def test_user_rejected_outranks_checkpoint_timeout():
+    # user_rejected is priority 1; checkpoint_timed_out is priority 1b.
+    # Both set → user_rejected must win.
+    state = {
+        "step_count": 3,
+        "user_rejected": True,
+        "checkpoint_timed_out": True,
+    }
+
+    stop, reason = should_stop(state)
+
+    assert stop is True
+    assert reason == "user_rejected"
