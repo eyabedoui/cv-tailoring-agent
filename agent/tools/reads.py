@@ -14,6 +14,7 @@ from typing import Any
 
 from agent.config import SANDBOX_DIR
 from agent.errors import make_error, NOT_FOUND, EMPTY_POSTING
+from sandbox.faults import check_fault
 from sandbox.portal import Portal
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,10 @@ _SKILL_ALIASES: dict[str, list[str]] = {
 def read_job_posting(url: str, _portal: Portal | None = None) -> dict:
     """Fetch a job posting by mock URL and return its structured data."""
     portal = _portal if _portal is not None else _get_portal()
+
+    fault = check_fault("read", portal.state_dir)
+    if fault is not None:
+        return fault
 
     # URL already validated by pydantic (mock://jobs/job_NNN).
     job_id = url[len("mock://jobs/"):]
