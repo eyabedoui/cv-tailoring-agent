@@ -20,6 +20,10 @@ from agent.logger import AgentLogger
 from agent.checkpoint import HumanApprovalCheckpoint
 from agent.prompts import SYSTEM_PROMPT
 from agent.tools.registry import TOOL_SCHEMAS, execute_tool
+from agent.errors import (
+    make_error, is_error,
+    INVALID_ARGUMENTS, UNKNOWN_TOOL, BAD_RESPONSE,
+)
 
 
 class AgentLoop:
@@ -30,6 +34,8 @@ class AgentLoop:
         self.checkpoint = checkpoint or HumanApprovalCheckpoint()
 
     def run(self, initial_messages=None):
+        run_start = time.perf_counter()
+
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
@@ -43,6 +49,7 @@ class AgentLoop:
             "identical_call_count": 0,
             "user_rejected": False,
             "done": False,
+            "checkpoint_timed_out": False,
         }
 
         previous_call = None
@@ -56,8 +63,31 @@ class AgentLoop:
         while True:
             response = self.model.call_model(messages, self.tools)
 
+            # --- malformed response guard ---
             if not isinstance(response, dict):
-                raise ValueError("Model response must be a dictionary.")
+                state["step_count"] += 1
+                error_result = make_error(
+                    BAD_RESPONSE,
+                    "Model response was not a dictionary.",
+                )
+                self.logger.log_step(
+                    step=state["step_count"],
+                    tool_name="(none)",
+                    input_data={},
+                    output_data=error_result,
+                    start_time=datetime.now(timezone.utc).isoformat(),
+                    duration_ms=0.0,
+                )
+                messages.append({
+                    "role": "tool",
+                    "name": "(none)",
+                    "content": _wrap(error_result),
+                })
+                stop, reason = should_stop(state)
+                if stop:
+                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
+                    return _stop_result(None, reason, state["step_count"], messages)
+                continue
 
             response_type = response.get("type")
 
@@ -70,11 +100,20 @@ class AgentLoop:
                     "content": answer,
                 })
 
+                usage = response.get("usage", {})
+                tokens_in = usage.get("input_tokens", 0)
+                tokens_out = usage.get("output_tokens", 0)
+
                 _, reason = should_stop(state)
+
+                total_ms = (time.perf_counter() - run_start) * 1000
 
                 self.logger.log_stop(
                     step=state["step_count"],
                     stop_reason=reason,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    total_ms=total_ms,
                 )
 
                 return {
@@ -85,38 +124,113 @@ class AgentLoop:
                 }
 
             if response_type != "tool_call":
-                raise ValueError(
-                    f"Unsupported model response type: {response_type}"
+                # Unsupported type — treat as bad response, count as a step.
+                state["step_count"] += 1
+                error_result = make_error(
+                    BAD_RESPONSE,
+                    f"Unsupported model response type: {response_type!r}.",
                 )
+                self.logger.log_step(
+                    step=state["step_count"],
+                    tool_name="(none)",
+                    input_data={},
+                    output_data=error_result,
+                    start_time=datetime.now(timezone.utc).isoformat(),
+                    duration_ms=0.0,
+                )
+                messages.append({
+                    "role": "tool",
+                    "name": "(none)",
+                    "content": _wrap(error_result),
+                })
+                stop, reason = should_stop(state)
+                if stop:
+                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
+                    return _stop_result(None, reason, state["step_count"], messages)
+                continue
 
             tool_name = response.get("tool_name")
             arguments = response.get("arguments", {})
 
             if not isinstance(arguments, dict):
-                raise ValueError("Tool arguments must be a dictionary.")
+                # Non-dict arguments — bad response, count as a step.
+                state["step_count"] += 1
+                error_result = make_error(
+                    BAD_RESPONSE,
+                    "Tool arguments must be a dictionary.",
+                )
+                self.logger.log_step(
+                    step=state["step_count"],
+                    tool_name=tool_name or "(none)",
+                    input_data={},
+                    output_data=error_result,
+                    start_time=datetime.now(timezone.utc).isoformat(),
+                    duration_ms=0.0,
+                )
+                messages.append({
+                    "role": "tool",
+                    "name": tool_name or "(none)",
+                    "content": _wrap(error_result),
+                })
+                stop, reason = should_stop(state)
+                if stop:
+                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
+                    return _stop_result(None, reason, state["step_count"], messages)
+                continue
 
             if tool_name == "submit_application":
-                if not all([
+                # Validate prerequisites before going to the checkpoint.
+                missing_prereqs = not all([
                     job,
                     master_cv is not None,
                     tailored_cv is not None,
                     cover_letter is not None,
-                ]):
-                    raise ValueError(
-                        "Cannot request submission approval: "
-                        "job, master CV, tailored CV, and cover letter "
-                        "must be available first."
-                    )
-
+                ])
                 job_id = arguments.get("job_id")
+                id_mismatch = job is not None and job_id != job.get("job_id")
 
-                if job_id != job.get("job_id"):
-                    raise ValueError(
-                        "Submission job ID does not match the reviewed job."
+                if missing_prereqs or id_mismatch:
+                    state["step_count"] += 1
+                    if id_mismatch:
+                        msg = (
+                            "Submission job ID does not match the reviewed job. "
+                            f"Expected {job.get('job_id')!r}, got {job_id!r}."
+                        )
+                    else:
+                        msg = (
+                            "Cannot request submission approval: "
+                            "job, master CV, tailored CV, and cover letter "
+                            "must all be available first."
+                        )
+                    error_result = make_error(INVALID_ARGUMENTS, msg)
+                    self.logger.log_step(
+                        step=state["step_count"],
+                        tool_name=tool_name,
+                        input_data=arguments,
+                        output_data=error_result,
+                        start_time=datetime.now(timezone.utc).isoformat(),
+                        duration_ms=0.0,
                     )
+                    messages.append({
+                        "role": "assistant",
+                        "content": json.dumps({
+                            "type": "tool_call",
+                            "tool_name": tool_name,
+                            "arguments": arguments,
+                        }),
+                    })
+                    messages.append({
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": _wrap(error_result),
+                    })
+                    stop, reason = should_stop(state)
+                    if stop:
+                        self.logger.log_stop(step=state["step_count"], stop_reason=reason)
+                        return _stop_result(None, reason, state["step_count"], messages)
+                    continue
 
-                # The model's submission request counts as a decision step,
-                # even if the human subsequently rejects it.
+                # The model's submission request counts as a step.
                 state["step_count"] += 1
 
                 # Display the review and obtain the human decision.
@@ -129,12 +243,25 @@ class AgentLoop:
                     cover_letter=cover_letter,
                 )
 
-                # Record the exact review and decision.
+                timed_out = getattr(self.checkpoint, "timed_out", False)
+
                 self.logger.log_checkpoint(
                     step=state["step_count"],
                     review_text=self.checkpoint.last_review_text,
                     approved=approved,
+                    timed_out=timed_out,
                 )
+
+                if timed_out:
+                    state["checkpoint_timed_out"] = True
+                    _, reason = should_stop(state)
+                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
+                    return _stop_result(
+                        "Checkpoint timed out; submission cancelled.",
+                        reason,
+                        state["step_count"],
+                        messages,
+                    )
 
                 if not approved:
                     state["user_rejected"] = True
@@ -145,12 +272,12 @@ class AgentLoop:
                         stop_reason=reason,
                     )
 
-                    return {
-                        "answer": "Application submission was rejected by the user.",
-                        "stop_reason": reason,
-                        "step_count": state["step_count"],
-                        "messages": messages,
-                    }
+                    return _stop_result(
+                        "Application submission was rejected by the user.",
+                        reason,
+                        state["step_count"],
+                        messages,
+                    )
 
             # Record the tool-call decision.
             # For submission, the step was already counted above.
@@ -181,43 +308,33 @@ class AgentLoop:
             start_timestamp = datetime.now(timezone.utc).isoformat()
             start_counter = time.perf_counter()
 
-            try:
-                result = execute_tool(tool_name, arguments)
-            except Exception as error:
-                result = {
-                    "error": type(error).__name__,
-                    "message": str(error),
-                }
+            result = execute_tool(tool_name, arguments)
 
-            duration_ms = (
-                time.perf_counter() - start_counter
-            ) * 1000
+            duration_ms = (time.perf_counter() - start_counter) * 1000
 
-            # Capture information needed by the approval checkpoint.
-            if tool_name == "read_job_posting":
-                job = result
+            # Only update state from successful (non-error) results.
+            if not is_error(result):
+                if tool_name == "read_job_posting":
+                    job = result
 
-            elif tool_name == "read_master_cv":
-                master_cv = result.get("text")
+                elif tool_name == "read_master_cv":
+                    master_cv = result.get("text")
 
-            elif tool_name == "save_tailored_cv":
-                kind = arguments.get("kind")
+                elif tool_name == "save_tailored_cv":
+                    kind = arguments.get("kind")
+                    if kind == "cv":
+                        tailored_cv = arguments.get("text")
+                    elif kind == "cover_letter":
+                        cover_letter = arguments.get("text")
 
-                if kind == "cv":
-                    tailored_cv = arguments.get("text")
+                if tool_name == "match_skills":
+                    score = result.get("score", result.get("match_score"))
+                    if score is not None:
+                        state["match_score"] = score
 
-                elif kind == "cover_letter":
-                    cover_letter = arguments.get("text")
-
-            # Accept either score field name.
-            if tool_name == "match_skills":
-                score = result.get(
-                    "score",
-                    result.get("match_score"),
-                )
-
-                if score is not None:
-                    state["match_score"] = score
+            usage = response.get("usage", {})
+            tokens_in = usage.get("input_tokens", 0)
+            tokens_out = usage.get("output_tokens", 0)
 
             self.logger.log_step(
                 step=state["step_count"],
@@ -226,31 +343,39 @@ class AgentLoop:
                 output_data=result,
                 start_time=start_timestamp,
                 duration_ms=duration_ms,
-            )
-
-            untrusted_result = (
-                '<tool_result untrusted="true">'
-                + json.dumps(result, ensure_ascii=False)
-                + "</tool_result>"
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
             )
 
             messages.append({
                 "role": "tool",
                 "name": tool_name,
-                "content": untrusted_result,
+                "content": _wrap(result),
             })
 
             stop, reason = should_stop(state)
 
             if stop:
+                total_ms = (time.perf_counter() - run_start) * 1000
                 self.logger.log_stop(
                     step=state["step_count"],
                     stop_reason=reason,
+                    total_ms=total_ms,
                 )
 
-                return {
-                    "answer": None,
-                    "stop_reason": reason,
-                    "step_count": state["step_count"],
-                    "messages": messages,
-                }
+                return _stop_result(None, reason, state["step_count"], messages)
+
+
+def _wrap(result) -> str:
+    """Wrap a tool result in an untrusted tag (delegates to untrusted module)."""
+    from agent.untrusted import wrap_untrusted
+    return wrap_untrusted(result)
+
+
+def _stop_result(answer, reason, step_count, messages):
+    return {
+        "answer": answer,
+        "stop_reason": reason,
+        "step_count": step_count,
+        "messages": messages,
+    }

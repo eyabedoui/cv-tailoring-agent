@@ -62,6 +62,10 @@ class AgentLogger:
 
         self.log_file = self.log_dir / f"{self.run_id}.jsonl"
 
+        # Running totals updated by each log_step call.
+        self._total_tokens_in = 0
+        self._total_tokens_out = 0
+
     def _write_event(self, event):
         """Append one JSON event to the run's log file."""
 
@@ -90,6 +94,15 @@ class AgentLogger:
     ):
         """Record one tool execution."""
 
+        self._total_tokens_in += tokens_in
+        self._total_tokens_out += tokens_out
+
+        from agent.config import PRICE_PER_MTOK_INPUT, PRICE_PER_MTOK_OUTPUT
+        cost_usd = (
+            tokens_in / 1_000_000 * PRICE_PER_MTOK_INPUT
+            + tokens_out / 1_000_000 * PRICE_PER_MTOK_OUTPUT
+        )
+
         event = {
             "event": "tool_call",
             "run_id": self.run_id,
@@ -101,14 +114,20 @@ class AgentLogger:
             "duration_ms": duration_ms,
             "tokens_in": tokens_in,
             "tokens_out": tokens_out,
+            "cost_usd": cost_usd,
         }
 
         self._write_event(event)
 
-    def log_checkpoint(self, step, review_text, approved):
+    def log_checkpoint(self, step, review_text, approved, timed_out=False):
         """
         Record the exact human review and approval decision.
         """
+
+        if timed_out:
+            decision = "timeout"
+        else:
+            decision = "approved" if approved else "rejected"
 
         event = {
             "event": "human_checkpoint",
@@ -116,22 +135,41 @@ class AgentLogger:
             "step": step,
             "review_text": review_text,
             "approved": approved,
-            "decision": (
-                "approved" if approved else "rejected"
-            ),
+            "decision": decision,
+            "timed_out": timed_out,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         self._write_event(event)
 
-    def log_stop(self, step, stop_reason):
-        """Record why the agent stopped."""
+    def log_stop(
+        self,
+        step,
+        stop_reason,
+        tokens_in=0,
+        tokens_out=0,
+        total_ms=0.0,
+    ):
+        """Record why the agent stopped, with per-task cost and time totals."""
+
+        from agent.config import PRICE_PER_MTOK_INPUT, PRICE_PER_MTOK_OUTPUT
+
+        total_tokens_in = self._total_tokens_in + tokens_in
+        total_tokens_out = self._total_tokens_out + tokens_out
+        total_cost_usd = (
+            total_tokens_in / 1_000_000 * PRICE_PER_MTOK_INPUT
+            + total_tokens_out / 1_000_000 * PRICE_PER_MTOK_OUTPUT
+        )
 
         event = {
             "event": "stop",
             "run_id": self.run_id,
             "step": step,
             "stop_reason": stop_reason,
+            "total_tokens_in": total_tokens_in,
+            "total_tokens_out": total_tokens_out,
+            "total_cost_usd": total_cost_usd,
+            "total_duration_ms": total_ms,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 

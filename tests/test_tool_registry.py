@@ -82,15 +82,16 @@ def test_save_tailored_cv():
 
 
 def test_save_tailored_cv_rejects_invalid_kind():
-    with pytest.raises(ValueError):
-        execute_tool(
-            "save_tailored_cv",
-            {
-                "text": "Sample",
-                "job_id": "job_001",
-                "kind": "invalid",
-            },
-        )
+    # Now returns make_error instead of raising (error contract, Item 2).
+    result = execute_tool(
+        "save_tailored_cv",
+        {
+            "text": "Sample",
+            "job_id": "job_001",
+            "kind": "invalid",
+        },
+    )
+    assert result["error"] == "INVALID_ARGUMENTS"
 
 
 def test_submit_application():
@@ -108,5 +109,6 @@ def test_submit_application():
 
 
 def test_unknown_tool_is_rejected():
-    with pytest.raises(ValueError, match="Unknown tool"):
-        execute_tool("unknown_tool", {})
+    # Now returns make_error instead of raising (error contract, Item 2).
+    result = execute_tool("unknown_tool", {})
+    assert result["error"] == "UNKNOWN_TOOL"
