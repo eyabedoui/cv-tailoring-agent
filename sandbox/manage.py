@@ -33,15 +33,20 @@ def seed() -> None:
 
 def reset() -> None:
     """
-    Delete sandbox/output/ and sandbox/state/ contents.
+    Clear sandbox/output/ and sandbox/state/ contents.
 
-    Keeps sandbox/postings/ (seed data) and the static markdown files.
+    Deletes the files inside those directories (not the directories themselves)
+    so the sandbox is ready for a fresh agent run.  Keeps sandbox/postings/
+    and the static markdown files.
     """
     for sub in ("output", "state"):
         target = _BASE / sub
-        if target.exists():
-            shutil.rmtree(target)
         target.mkdir(parents=True, exist_ok=True)
+        for item in target.iterdir():
+            if item.is_file():
+                item.unlink(missing_ok=True)
+            elif item.is_dir():
+                shutil.rmtree(item, ignore_errors=True)
     print("Sandbox output and state cleared.")
 
 

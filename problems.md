@@ -132,3 +132,84 @@ escape the `<tool_result untrusted="true">` boundary.
   Person B's real tools will use the actual `--job-url` value.
 - `invalid_response` is returned (not raising) from `_parse_response` to keep
   the loop's bad-response path consistent with the error contract.
+
+---
+
+## Handoff note for Person C
+
+**Built in this pass (Person B, 2026-11-14):**
+
+### New files
+
+| File | Purpose |
+|------|---------|
+| `agent/tools/schemas.py` | Pydantic v2 input + output models for all 6 tools; `TOOL_SCHEMA_MAP` |
+| `agent/tools/reads.py` | Real read tools: `read_job_posting`, `read_master_cv`, `match_skills`, `check_format` |
+| `agent/tools/writes.py` | Real write tools: `save_tailored_cv` (atomic rename), `submit_application` (PATH_NOT_ALLOWED + DUPLICATE_SUBMISSION) |
+| `sandbox/__init__.py` | Makes `sandbox` a Python package |
+| `sandbox/portal.py` | `Portal` class — file-system-backed job postings + application state |
+| `sandbox/seed.py` | 25 deterministic fictional job postings (`job_001`–`job_025`) |
+| `sandbox/faults.py` | `check_fault()` — FAULT_MODE fault injection for read and submit |
+| `sandbox/manage.py` | `setup`, `seed`, `reset`, `run` sandbox management commands |
+| `sandbox/__main__.py` | `python -m sandbox <command>` entry point |
+| `sandbox/master_cv.md` | Fictional candidate CV (candidate_001, Alex Jordan) |
+| `sandbox/missing_skills.md` | Skills the candidate genuinely does not have (fabrication guard) |
+| `docs/sandbox.md` | Table of all 25 postings with expected match scores |
+| `Makefile` | `install`, `test`, `sandbox-*`, `run-fake`, `run` targets |
+| `tests/conftest.py` | Session fixture — seeds `sandbox/postings/` before tests run |
+| `tests/test_schemas.py` | 32 tests: Pydantic input/output models + registry validation layer |
+| `tests/test_portal.py` | 20 tests: Portal operations + seed data consistency |
+| `tests/test_write_tools.py` | 19 tests: atomic save, PATH_NOT_ALLOWED, DUPLICATE_SUBMISSION |
+| `tests/test_read_tools.py` | 33 tests: all four read tools, alias matching, error paths, 0.75 score |
+| `tests/test_fault_modes.py` | 21 tests: all 6 FAULT_MODE values on read and submit |
+
+### Modified files
+
+| File | What changed |
+|------|-------------|
+| `agent/tools/registry.py` | Pydantic input/output validation; `input_schema` in `TOOL_SCHEMAS`; real tools replacing stubs |
+| `requirements.txt` | Added `pydantic>=2.0` |
+| `.gitignore` | Excludes `sandbox/postings/`, `sandbox/output/`, `sandbox/state/` |
+
+### How to run
+
+```
+pip install -r requirements.txt
+python -m sandbox reset
+python -m sandbox seed
+python -m agent --model fake --auto-approve
+python -m pytest -q                       # 228 tests, all green
+```
+
+### Design decisions
+
+- **Portal injection** (`_portal=None`): read and write tool functions accept
+  an optional `_portal` keyword argument so tests can inject a `tmp_path`-backed
+  portal without touching the real `sandbox/` directory. When called through
+  `execute_tool` the argument is absent and the module-level default is used.
+- **Alias matching**: `match_skills` uses a small hardcoded alias table
+  (`_SKILL_ALIASES` in `reads.py`) for common variations (e.g. "unit testing" →
+  "pytest"). Short aliases like "ml" were intentionally excluded because they are
+  substrings of unrelated words ("html").
+- **Atomic writes**: both `save_tailored_cv` and `portal.record_application`
+  write to a `.tmp` file first, then `os.replace()` to avoid partial writes.
+- **PATH_NOT_ALLOWED**: `submit_application` rejects absolute paths and paths
+  containing `..` components. On Windows `Path.is_absolute()` does not detect
+  Unix-style `/etc/passwd`, so the check also tests `path_str.startswith("/")`.
+- **FAULT_MODE** only fires in `read_job_posting` and `submit_application` (the
+  two portal-touching operations). `reject_duplicate` only fires for `context="submit"`.
+- `sandbox/manage.py reset()` deletes files inside `output/` and `state/` without
+  removing the directories themselves — required on Windows/OneDrive where
+  `shutil.rmtree` on a sync-locked directory raises `PermissionError`.
+- **conftest.py** seeds `sandbox/postings/` once per test session so registry
+  integration tests that call `read_job_posting` through `execute_tool` find real
+  posting files without needing a manual `python -m sandbox seed` before testing.
+
+### What Person C still needs to do
+
+Week 2 (not in this pass):
+- HTML stripping for real job postings
+- Injection/adversarial posting scenarios (Person C's fabrication checker)
+- Messy-posting handling
+- Eval scenarios
+- Final README updates

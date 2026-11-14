@@ -11,6 +11,7 @@ from pathlib import Path
 
 from agent.config import SANDBOX_DIR
 from agent.errors import make_error, PATH_NOT_ALLOWED, DUPLICATE_SUBMISSION
+from sandbox.faults import check_fault
 from sandbox.portal import Portal
 
 # Lazy-initialised default portal; tests may replace this via monkeypatching.
@@ -70,6 +71,10 @@ def submit_application(
 ) -> dict:
     """Record a submitted application.  Rejects path traversal and duplicates."""
     portal = _portal if _portal is not None else _get_portal()
+
+    fault = check_fault("submit", portal.state_dir)
+    if fault is not None:
+        return fault
 
     # PATH_NOT_ALLOWED: reject absolute paths and ".." traversal.
     # Path.is_absolute() misses Unix-style "/..." on Windows, so also check
