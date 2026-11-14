@@ -2,8 +2,12 @@
 """
 JSONL logger for the CV-tailoring agent.
 
-Each tool call produces one JSONL event.
-The end of each run produces a separate stop event.
+Records:
+1. Tool execution events.
+2. Human approval checkpoint events.
+3. Agent stop events.
+
+Each event is stored as one JSON line.
 """
 
 import json
@@ -36,26 +40,40 @@ def redact_sensitive_data(value):
         }
 
     if isinstance(value, list):
-        return [redact_sensitive_data(item) for item in value]
+        return [
+            redact_sensitive_data(item)
+            for item in value
+        ]
 
     return value
 
 
 class AgentLogger:
     def __init__(self, log_dir="logs", run_id=None):
+        """
+        Initialize the logger.
+
+        Each run gets a separate JSONL file.
+        """
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.run_id = run_id or str(uuid.uuid4())
+
         self.log_file = self.log_dir / f"{self.run_id}.jsonl"
 
     def _write_event(self, event):
         """Append one JSON event to the run's log file."""
+
         safe_event = redact_sensitive_data(event)
 
         with self.log_file.open("a", encoding="utf-8") as file:
             file.write(
-                json.dumps(safe_event, ensure_ascii=False, default=str)
+                json.dumps(
+                    safe_event,
+                    ensure_ascii=False,
+                    default=str,
+                )
                 + "\n"
             )
 
@@ -71,6 +89,7 @@ class AgentLogger:
         tokens_out=0,
     ):
         """Record one tool execution."""
+
         event = {
             "event": "tool_call",
             "run_id": self.run_id,
@@ -86,8 +105,28 @@ class AgentLogger:
 
         self._write_event(event)
 
+    def log_checkpoint(self, step, review_text, approved):
+        """
+        Record the exact human review and approval decision.
+        """
+
+        event = {
+            "event": "human_checkpoint",
+            "run_id": self.run_id,
+            "step": step,
+            "review_text": review_text,
+            "approved": approved,
+            "decision": (
+                "approved" if approved else "rejected"
+            ),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        self._write_event(event)
+
     def log_stop(self, step, stop_reason):
         """Record why the agent stopped."""
+
         event = {
             "event": "stop",
             "run_id": self.run_id,
