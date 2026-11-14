@@ -7,6 +7,8 @@ Person B can later replace them with real implementations
 while keeping the same tool contracts.
 """
 
+from agent.errors import make_error, INVALID_ARGUMENTS
+
 
 def read_job_posting(url: str) -> dict:
     """Simulate reading a job posting."""
@@ -71,7 +73,10 @@ def save_tailored_cv(text: str, job_id: str, kind: str) -> dict:
     """Simulate saving a tailored CV or cover letter."""
 
     if kind not in ("cv", "cover_letter"):
-        raise ValueError("kind must be 'cv' or 'cover_letter'")
+        return make_error(
+            INVALID_ARGUMENTS,
+            f"kind must be 'cv' or 'cover_letter', got {kind!r}",
+        )
 
     return {
         "path": f"sandbox/output/{job_id}_{kind}.txt",

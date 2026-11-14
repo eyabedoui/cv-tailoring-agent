@@ -7,6 +7,7 @@ and executes the selected tool.
 """
 
 from agent.tools import stubs
+from agent.errors import make_error, INVALID_ARGUMENTS, UNKNOWN_TOOL, BAD_RESPONSE
 
 
 TOOL_FUNCTIONS = {
@@ -72,12 +73,18 @@ def execute_tool(tool_name: str, arguments: dict) -> dict:
     """
     Execute a tool by name with the supplied arguments.
 
-    Raises ValueError if the requested tool does not exist.
+    Returns an error dict (never raises) so the loop can forward the error
+    to the model without crashing.
     """
 
     if tool_name not in TOOL_FUNCTIONS:
-        raise ValueError(f"Unknown tool: {tool_name}")
+        return make_error(UNKNOWN_TOOL, f"Unknown tool: {tool_name}")
 
     tool_function = TOOL_FUNCTIONS[tool_name]
 
-    return tool_function(**arguments)
+    try:
+        return tool_function(**arguments)
+    except TypeError as exc:
+        return make_error(INVALID_ARGUMENTS, str(exc))
+    except Exception as exc:
+        return make_error(BAD_RESPONSE, str(exc))

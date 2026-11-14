@@ -37,6 +37,10 @@ def should_stop(state: dict) -> tuple[bool, str | None]:
     if state.get("user_rejected", False):
         return True, "user_rejected"
 
+    # 1b. Checkpoint timeout.
+    if state.get("checkpoint_timed_out", False):
+        return True, "checkpoint_timeout"
+
     # 2. Stop if the workflow is completed.
     if state.get("done", False):
         return True, "done"
