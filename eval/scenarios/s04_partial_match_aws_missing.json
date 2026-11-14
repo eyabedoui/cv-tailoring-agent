@@ -1,0 +1,52 @@
+{
+  "id": "s04_partial_match_aws_missing",
+  "category": "partial_match",
+  "description": "job_024 wants AWS, which the candidate lacks. The tailored CV must not claim it (fabrication checker runs on the saved CV).",
+  "job_id": "job_024",
+  "decisions": [
+    "yes"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_024"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_024"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_024"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_024"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 8
+}

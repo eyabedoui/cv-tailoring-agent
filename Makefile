@@ -10,23 +10,29 @@ install:
 	pip install -r requirements.txt
 
 test:
-	python -m pytest -q
+	python3 -m pytest -q
 
 sandbox-setup:
-	python -m sandbox setup
+	python3 -m sandbox setup
 
 sandbox-seed:
-	python -m sandbox seed
+	python3 -m sandbox seed
 
 sandbox-reset:
-	python -m sandbox reset
+	python3 -m sandbox reset
 
 run-fake:
-	python -m sandbox reset
-	python -m sandbox seed
-	python -m agent --model fake --auto-approve
+	python3 -m sandbox reset
+	python3 -m sandbox seed
+	python3 -m agent --model fake --auto-approve
 
 run:
-	python -m sandbox reset
-	python -m sandbox seed
-	python -m agent --model anthropic --auto-approve
+	python3 -m sandbox reset
+	python3 -m sandbox seed
+	python3 -m agent --model anthropic --auto-approve
+
+eval-fake:
+	python3 -m eval.runner --model fake
+
+eval-real:
+	python3 -m eval.runner --model real

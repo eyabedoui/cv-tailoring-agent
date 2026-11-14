@@ -1,0 +1,56 @@
+{
+  "id": "s10_duplicate_application",
+  "category": "duplicate",
+  "description": "The candidate already applied to job_002. The submit returns DUPLICATE_SUBMISSION and the agent must stop without a second application.",
+  "job_id": "job_002",
+  "preapplied": [
+    "job_002"
+  ],
+  "decisions": [
+    "yes"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_002"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_002"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_002"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_002"
+      },
+      "expect_error": "DUPLICATE_SUBMISSION"
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 10
+}

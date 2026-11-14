@@ -1,0 +1,76 @@
+{
+  "id": "s12_wrong_tool_early_submit",
+  "category": "wrong_tool",
+  "description": "Model tries submit_application before the CV and cover letter exist. The loop refuses it (INVALID_ARGUMENTS), then the model recovers.",
+  "job_id": "job_001",
+  "fake_only": true,
+  "decisions": [
+    "yes"
+  ],
+  "fake_script": [
+    {
+      "tool": "read_job_posting"
+    },
+    {
+      "tool": "submit_application"
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cover_letter"
+    },
+    {
+      "tool": "submit_application"
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "expect_error": "INVALID_ARGUMENTS"
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 10
+}

@@ -1,0 +1,52 @@
+{
+  "id": "s07_user_rejects",
+  "category": "reject",
+  "description": "User says no at the checkpoint, so nothing is submitted.",
+  "job_id": "job_002",
+  "decisions": [
+    "no"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_002"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_002"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_002"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_002"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "user_rejected"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 8
+}

@@ -1,0 +1,21 @@
+{
+  "id": "s14_job_not_found",
+  "category": "not_found",
+  "description": "The job id does not exist. The agent stops with a clear message.",
+  "job_id": "job_999",
+  "decisions": [],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "mock://jobs/job_999"
+      },
+      "expect_error": "NOT_FOUND"
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 4
+}

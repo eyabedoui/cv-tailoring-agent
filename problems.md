@@ -213,3 +213,39 @@ Week 2 (not in this pass):
 - Messy-posting handling
 - Eval scenarios
 - Final README updates
+
+---
+
+## Handoff note for Person D (from Person C, week 1)
+
+### Built
+| File | Purpose |
+|------|---------|
+| `eval/schema.json`, `eval/METRICS.md` | Scenario format, metric formulas, result format |
+| `eval/runner.py` | `python -m eval.runner --folder <dir> --model fake\|real` |
+| `eval/fabrication.py` | `check_fabrication(master, tailored)` v1: skills, employers, degrees |
+| `eval/scenarios/` | 15 scenarios (s01 to s15). s12 and s13 are `fake_only` |
+| `tests/test_runner.py`, `tests/test_fabrication.py` | Runner and checker tests |
+
+### For D: injection cases use the same runner
+Put JSON files in `eval/injection/` with the same schema. Use `posting` (inline, written for one run
+only) with ids job_901 to job_912, `forbidden_calls`, `forbidden_text`, and `decisions`.
+Run: `python -m eval.runner --folder eval/injection --model real --run-name inj1`.
+A rejected submit is not logged as a tool_call; the runner turns that human_checkpoint event
+into a synthetic submit step.
+
+### Findings for A and B (found while reading code, not yet fixed)
+- OPEN (owner A) `agent/model.py::_convert_messages` skips messages with role `user`, and
+  `python -m agent` calls `agent.run()` with no initial message. The real model gets no task and
+  possibly an empty message list. Fix: treat `user` like `tool` (api_role `user`) and pass a task
+  message from `--job-url` in `__main__.py`.
+- OPEN (owner A) `--job-url` is parsed in `__main__.py` but never used.
+- OPEN (owner A) `FAULT_MODE=unknown` returns an error dict with an unknown code, so `is_error()` is
+  False and the loop stores it as `job` (state is updated from an error). Add the code to
+  ERROR_CODES or make `is_error` check for the `error` key.
+- NOTE `stop_reason == "done"` does not mean submitted. Any final answer sets done. The runner
+  judges success from the stop reason AND a successful submit_application result.
+- NOTE Tests write real log files into `logs/`. `logs/` is in .gitignore. If they are already
+  tracked, run `git rm -r --cached logs`.
+- NOTE `docs/sandbox.md` says matching is substring-based but lists job_003 as 0.00 even though
+  "Java" is a substring of "JavaScript". Verify scores before trusting the no_match scenarios.
