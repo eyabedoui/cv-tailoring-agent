@@ -6,6 +6,8 @@ from agent.tools.registry import (
     TOOL_SCHEMAS,
     execute_tool,
 )
+from sandbox.portal import Portal
+import agent.tools.writes as _writes_mod
 
 
 def test_registry_contains_six_tools():
@@ -67,7 +69,8 @@ def test_check_format():
     assert result["issues"] == []
 
 
-def test_save_tailored_cv():
+def test_save_tailored_cv(tmp_path, monkeypatch):
+    monkeypatch.setattr(_writes_mod, "_portal", Portal(sandbox_dir=str(tmp_path)))
     result = execute_tool(
         "save_tailored_cv",
         {
@@ -94,12 +97,13 @@ def test_save_tailored_cv_rejects_invalid_kind():
     assert result["error"] == "INVALID_ARGUMENTS"
 
 
-def test_submit_application():
+def test_submit_application(tmp_path, monkeypatch):
+    monkeypatch.setattr(_writes_mod, "_portal", Portal(sandbox_dir=str(tmp_path)))
     result = execute_tool(
         "submit_application",
         {
-            "cv_path": "cv.txt",
-            "cover_letter_path": "cover.txt",
+            "cv_path": "sandbox/output/cv_job_001.md",
+            "cover_letter_path": "sandbox/output/cover_letter_job_001.md",
             "job_id": "job_001",
         },
     )
