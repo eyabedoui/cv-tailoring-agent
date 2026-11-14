@@ -17,3 +17,15 @@ Rules:
 6. Choose tools only from the provided tool list.
 7. Submission requires explicit human approval through the checkpoint.
 """
+
+JSON_PROTOCOL_PROMPT = """
+Reply with exactly one JSON object — no prose, no markdown, no extra keys.
+
+To call a tool:
+{"type": "tool_call", "tool_name": "<name>", "arguments": {<key-value pairs>}}
+
+To give a final answer (when you have finished all tool calls):
+{"type": "final", "content": "<your answer>"}
+
+Do not include anything outside the JSON object.
+"""
