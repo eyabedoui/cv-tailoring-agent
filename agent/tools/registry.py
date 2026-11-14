@@ -9,6 +9,7 @@ and executes the selected tool.
 from pydantic import ValidationError
 
 from agent.tools import stubs
+from agent.tools import writes
 from agent.errors import make_error, INVALID_ARGUMENTS, UNKNOWN_TOOL, BAD_RESPONSE
 from agent.tools.schemas import TOOL_SCHEMA_MAP
 
@@ -18,8 +19,8 @@ TOOL_FUNCTIONS = {
     "read_master_cv": stubs.read_master_cv,
     "match_skills": stubs.match_skills,
     "check_format": stubs.check_format,
-    "save_tailored_cv": stubs.save_tailored_cv,
-    "submit_application": stubs.submit_application,
+    "save_tailored_cv": writes.save_tailored_cv,
+    "submit_application": writes.submit_application,
 }
 
 
