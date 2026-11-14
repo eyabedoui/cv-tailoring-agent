@@ -18,3 +18,19 @@ MAX_REVISIONS = 2
 
 # Stop after this many identical consecutive tool calls.
 MAX_SAME_CALL_REPEATS = 3
+
+# Fixed candidate identifier used across all runs.
+CANDIDATE_ID = "candidate_001"
+
+# Directory for sandboxed output files.
+SANDBOX_DIR = "sandbox"
+
+# Only URLs starting with this prefix are accepted by the mock tools.
+ALLOWED_URL_PREFIX = "mock://"
+
+# Seconds the checkpoint waits for interactive input before timing out.
+CHECKPOINT_TIMEOUT_SECONDS = 120
+
+# Token pricing — fill in from your provider's price list before computing costs.
+PRICE_PER_MTOK_INPUT = 0.0
+PRICE_PER_MTOK_OUTPUT = 0.0
