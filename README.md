@@ -45,3 +45,11 @@ _To be filled in after evaluation._
 
 - **Person A** owns `agent/` and `tests/`.
 - **Person B** owns `eval/`, the real tool implementations, and the job portal.
+
+## Pull request rules
+
+- Work on a branch, never directly on `main`.
+- Every PR needs at least one teammate review before merging.
+- All tests must pass before merging.
+- Never commit API keys, `.env` files, logs or real personal data.
+- Every bug fix adds an entry to `problems.md`.
