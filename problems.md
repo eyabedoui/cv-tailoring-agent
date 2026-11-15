@@ -249,3 +249,11 @@ into a synthetic submit step.
   tracked, run `git rm -r --cached logs`.
 - NOTE `docs/sandbox.md` says matching is substring-based but lists job_003 as 0.00 even though
   "Java" is a substring of "JavaScript". Verify scores before trusting the no_match scenarios.
+
+---
+
+## Review notes from Person D (week 1, 2026-11-15)
+
+- OPEN (owner B, B7) `read_job_posting` returns title, company and text with no HTML, hidden-text or zero-width stripping and no length limit. Needed for injection cases 6 and 8.
+- OPEN (owner A) Real-model injection runs are blocked by the missing task message in `agent/model.py` (see Person C's finding above).
+- NOTE `agent/untrusted.py` reviewed: the wrapper escapes `<`, `>` and `&` and no hole was found.
