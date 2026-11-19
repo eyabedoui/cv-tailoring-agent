@@ -20,8 +20,8 @@ def main() -> None:
     run_p = sub.add_parser("run", help="Run the agent with the fake model.")
     run_p.add_argument(
         "--job-url",
-        default="mock://jobs/job_001",
-        help="Job posting URL to pass to the agent (default: mock://jobs/job_001).",
+        default=None,
+        help="Job posting URL to pass to the agent (default: own site job_001).",
     )
 
     args = parser.parse_args()
@@ -33,7 +33,8 @@ def main() -> None:
     elif args.command == "reset":
         reset()
     elif args.command == "run":
-        run(job_url=args.job_url)
+        from agent.sites import own_job_url
+        run(job_url=args.job_url or own_job_url("job_001"))
     else:
         parser.print_help()
         sys.exit(1)

@@ -153,7 +153,7 @@ def test_agent_loop_blocks_submission_when_user_rejects(
             "type": "tool_call",
             "tool_name": "read_job_posting",
             "arguments": {
-                "url": "mock://jobs/job_001",
+                "url": "http://127.0.0.1:5000/jobs/job_001",
             },
         },
         {
@@ -233,7 +233,7 @@ def test_agent_loop_submits_application_after_user_approves(
             "type": "tool_call",
             "tool_name": "read_job_posting",
             "arguments": {
-                "url": "mock://jobs/job_001",
+                "url": "http://127.0.0.1:5000/jobs/job_001",
             },
         },
         {
@@ -348,7 +348,7 @@ def test_loop_failed_read_does_not_store_job_and_blocks_submit(
         {
             "type": "tool_call",
             "tool_name": "read_job_posting",
-            "arguments": {"url": "mock://jobs/job_001"},
+            "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"},
         },
         # After failed read, model immediately tries to submit.
         {
@@ -422,7 +422,7 @@ def test_loop_failed_save_tailored_cv_blocks_submit(monkeypatch, tmp_path):
         {
             "type": "tool_call",
             "tool_name": "read_job_posting",
-            "arguments": {"url": "mock://jobs/job_001"},
+            "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"},
         },
         {
             "type": "tool_call",
@@ -494,7 +494,7 @@ def test_loop_submit_mismatched_job_id_no_exception_no_checkpoint(tmp_path):
         {
             "type": "tool_call",
             "tool_name": "read_job_posting",
-            "arguments": {"url": "mock://jobs/job_001"},
+            "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"},
         },
         {
             "type": "tool_call",
@@ -698,7 +698,7 @@ def test_loop_checkpoint_timeout_stops_run_and_logs_timed_out(
         {
             "type": "tool_call",
             "tool_name": "read_job_posting",
-            "arguments": {"url": "mock://jobs/job_001"},
+            "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"},
         },
         {
             "type": "tool_call",

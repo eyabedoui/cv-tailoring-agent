@@ -8,7 +8,7 @@
     {
       "tool": "read_job_posting",
       "args": {
-        "url": "mock://jobs/job_012"
+        "url": "http://127.0.0.1:5000/jobs/job_012"
       }
     },
     {

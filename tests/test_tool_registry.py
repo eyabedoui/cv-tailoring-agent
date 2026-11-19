@@ -29,9 +29,10 @@ def test_all_seven_tool_schemas_are_available():
 
 
 def test_read_job_posting():
+    from agent.sites import own_job_url
     result = execute_tool(
         "read_job_posting",
-        {"url": "mock://jobs/job_001"},
+        {"url": own_job_url("job_001")},
     )
 
     assert result["job_id"] == "job_001"

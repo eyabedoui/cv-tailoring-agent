@@ -9,6 +9,7 @@ import pytest
 
 from agent.__main__ import main as agent_main, FAKE_WALKTHROUGH_RESPONSES, _load_dotenv
 from agent.loop import AgentLoop
+from agent.sites import own_job_url
 from agent.tools.writes import save_tailored_cv
 from sandbox.portal import Portal
 
@@ -62,7 +63,7 @@ def test_request_flag_ignores_job_url(tmp_path, monkeypatch):
     agent_main([
         "--model", "fake",
         "--auto-approve",
-        "--job-url", "mock://jobs/job_002",
+        "--job-url", own_job_url("job_002"),
         "--request", "Override request.",
     ])
 
@@ -87,11 +88,11 @@ def test_no_request_flag_uses_job_url(tmp_path, monkeypatch):
     agent_main([
         "--model", "fake",
         "--auto-approve",
-        "--job-url", "mock://jobs/job_001",
+        "--job-url", own_job_url("job_001"),
     ])
 
     contents = [m.get("content", "") for m in captured_messages]
-    assert any("mock://jobs/job_001" in c for c in contents)
+    assert any(own_job_url("job_001") in c for c in contents)
 
 
 # ---------------------------------------------------------------------------

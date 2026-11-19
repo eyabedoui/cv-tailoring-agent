@@ -6,6 +6,7 @@ Tests for agent/tools/schemas.py and the pydantic validation layer in registry.p
 import pytest
 from pydantic import ValidationError
 
+from agent.sites import own_job_url
 from agent.tools.schemas import (
     ReadJobPostingIn,
     ReadMasterCvIn,
@@ -22,25 +23,37 @@ from agent.tools.registry import TOOL_SCHEMAS, execute_tool
 # ReadJobPostingIn
 # ---------------------------------------------------------------------------
 
-def test_read_job_posting_in_accepts_valid_url():
-    m = ReadJobPostingIn(url="mock://jobs/job_001")
-    assert m.url == "mock://jobs/job_001"
+def test_read_job_posting_in_accepts_own_site_url():
+    m = ReadJobPostingIn(url=own_job_url("job_001"))
+    assert m.url == own_job_url("job_001")
+
+
+def test_read_job_posting_in_accepts_allowlisted_https_url():
+    m = ReadJobPostingIn(url="https://www.tanitjobs.com/jobs/123")
+    assert m.url == "https://www.tanitjobs.com/jobs/123"
 
 
 def test_read_job_posting_in_rejects_wrong_prefix():
+    # Non-allowlisted https URL is rejected at pydantic level.
     with pytest.raises(ValidationError) as exc_info:
         ReadJobPostingIn(url="https://example.com/jobs/job_001")
     assert "url" in str(exc_info.value)
 
 
 def test_read_job_posting_in_rejects_bad_job_id_suffix():
+    # own-site URL with invalid job_id (only 1 digit) is rejected.
     with pytest.raises(ValidationError):
-        ReadJobPostingIn(url="mock://jobs/job_1")  # only 1 digit
+        ReadJobPostingIn(url=own_job_url("job_1"))
 
 
 def test_read_job_posting_in_rejects_extra_fields():
     with pytest.raises(ValidationError):
-        ReadJobPostingIn(url="mock://jobs/job_001", extra_field="x")
+        ReadJobPostingIn(url=own_job_url("job_001"), extra_field="x")
+
+
+def test_read_job_posting_in_rejects_ftp_url():
+    with pytest.raises(ValidationError):
+        ReadJobPostingIn(url="ftp://www.tanitjobs.com/jobs/123")
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +128,11 @@ def test_save_tailored_cv_in_accepts_cover_letter_kind():
     assert m.kind == "cover_letter"
 
 
+def test_save_tailored_cv_in_accepts_live_site_job_id():
+    m = SaveTailoredCvIn(text="CV text", job_id="tanitjobs-a1b2c3d4", kind="cv")
+    assert m.job_id == "tanitjobs-a1b2c3d4"
+
+
 def test_save_tailored_cv_in_rejects_bad_kind():
     with pytest.raises(ValidationError):
         SaveTailoredCvIn(text="text", job_id="job_001", kind="resume")
@@ -142,6 +160,15 @@ def test_submit_application_in_accepts_valid():
         job_id="job_001",
     )
     assert m.job_id == "job_001"
+
+
+def test_submit_application_in_accepts_live_site_job_id():
+    m = SubmitApplicationIn(
+        cv_path="a.md",
+        cover_letter_path="b.md",
+        job_id="keejob-00000000",
+    )
+    assert m.job_id == "keejob-00000000"
 
 
 def test_submit_application_in_rejects_bad_job_id():
@@ -189,14 +216,14 @@ def test_read_job_posting_input_schema_has_url_property():
 # ---------------------------------------------------------------------------
 
 def test_execute_tool_rejects_bad_url_prefix():
-    # Non-allowlisted https:// URLs now return SITE_NOT_ALLOWED (not INVALID_ARGUMENTS)
-    # because the site-allowlist pre-check fires before schema validation.
+    # Non-allowlisted https:// URLs return SITE_NOT_ALLOWED from the pre-check.
     result = execute_tool("read_job_posting", {"url": "https://jobs.example.com/job_001"})
     assert result["error"] == "SITE_NOT_ALLOWED"
 
 
 def test_execute_tool_rejects_bad_job_id_in_url():
-    result = execute_tool("read_job_posting", {"url": "mock://jobs/job_1"})
+    # own-site URL with invalid job_id → INVALID_ARGUMENTS from pydantic.
+    result = execute_tool("read_job_posting", {"url": own_job_url("job_1")})
     assert result["error"] == "INVALID_ARGUMENTS"
 
 
@@ -241,8 +268,6 @@ def test_execute_tool_validation_error_message_names_bad_field():
 
 
 def test_execute_tool_still_returns_error_dict_from_tool():
-    # save_tailored_cv with valid schema args but invalid kind at stub level
-    # (pydantic now catches 'invalid' kind first; this confirms error passthrough)
     result = execute_tool(
         "save_tailored_cv",
         {"text": "CV", "job_id": "job_001", "kind": "invalid"},

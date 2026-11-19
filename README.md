@@ -19,7 +19,7 @@ cp .env.example .env        # then fill in OPENAI_API_KEY
 
 ```bash
 # Full run with real model (requires OPENAI_API_KEY in .env)
-python -m agent --job-url mock://jobs/job_001
+python -m agent --job-url http://127.0.0.1:5000/jobs/job_001
 
 # Demo run with no API key required
 python -m agent --model fake --auto-approve

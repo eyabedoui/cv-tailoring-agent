@@ -111,13 +111,13 @@ def execute_tool(tool_name: str, arguments: dict) -> dict:
         return make_error(UNKNOWN_TOOL, f"Unknown tool: {tool_name}")
 
     # Pre-schema check: http/https URLs to read_job_posting must pass the
-    # site allowlist; non-allowlisted URLs return SITE_NOT_ALLOWED rather
-    # than INVALID_ARGUMENTS so the model knows why the URL was rejected.
+    # site allowlist or be from our own site; other URLs return SITE_NOT_ALLOWED
+    # rather than INVALID_ARGUMENTS so the model knows why the URL was rejected.
     if tool_name == "read_job_posting":
         url = arguments.get("url", "")
         if isinstance(url, str) and url.lower().startswith(("http://", "https://")):
-            from agent.sites import is_url_allowed, site_names
-            if not is_url_allowed(url):
+            from agent.sites import is_url_allowed, is_own_url, site_names
+            if not is_url_allowed(url) and not is_own_url(url):
                 names = ", ".join(sorted(site_names()))
                 return make_error(
                     SITE_NOT_ALLOWED,

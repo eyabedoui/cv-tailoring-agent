@@ -75,7 +75,7 @@ def test_failed_read_does_not_set_job(monkeypatch, tmp_path):
     # ultimately stop by max_steps or done.
     model = FakeModel([
         {"type": "tool_call", "tool_name": "read_job_posting",
-         "arguments": {"url": "mock://jobs/job_001"}},
+         "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
         {"type": "final", "content": "Could not read job."},
     ])
 
@@ -105,7 +105,7 @@ def test_failed_save_does_not_set_tailored_cv(monkeypatch, tmp_path):
 
     model = FakeModel([
         {"type": "tool_call", "tool_name": "read_job_posting",
-         "arguments": {"url": "mock://jobs/job_001"}},
+         "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
         {"type": "tool_call", "tool_name": "read_master_cv", "arguments": {}},
         {"type": "tool_call", "tool_name": "save_tailored_cv",
          "arguments": {"text": "cv text", "job_id": "job_001", "kind": "cv"}},
@@ -132,7 +132,7 @@ def test_failed_save_does_not_set_tailored_cv(monkeypatch, tmp_path):
 def test_submit_mismatched_job_id_does_not_crash(tmp_path):
     model = FakeModel([
         {"type": "tool_call", "tool_name": "read_job_posting",
-         "arguments": {"url": "mock://jobs/job_001"}},
+         "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
         {"type": "tool_call", "tool_name": "read_master_cv", "arguments": {}},
         {"type": "tool_call", "tool_name": "save_tailored_cv",
          "arguments": {"text": "cv", "job_id": "job_001", "kind": "cv"}},
@@ -211,7 +211,7 @@ def test_unknown_fault_code_does_not_set_job(monkeypatch, tmp_path):
 
     model = FakeModel([
         {"type": "tool_call", "tool_name": "read_job_posting",
-         "arguments": {"url": "mock://jobs/job_001"}},
+         "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
         # Try to submit without job set — should fail in the submit gate.
         {"type": "tool_call", "tool_name": "submit_application",
          "arguments": {"cv_path": "x", "cover_letter_path": "y", "job_id": "job_001"}},

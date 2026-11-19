@@ -5,24 +5,19 @@ Pydantic v2 input/output schemas for the CV-tailoring tools.
 Rules applied:
 - extra="forbid" on all models (no undocumented fields accepted).
 - Strings are non-empty and length-limited.
-- job_id must match ^job_\\d{3}$ for sandbox tools.
+- job_id must pass is_valid_job_id() (accepts job_NNN and site-xxxxxxxx).
 - kind is Literal["cv","cover_letter"].
-- read_job_posting url must start with ALLOWED_URL_PREFIX + "jobs/" and end
-  with a valid job_id pattern.
+- read_job_posting url must be either an own-site URL with a valid job_id
+  or an allowlisted https:// URL.
 - job argument for match_skills must have a requirements list.
 - find_jobs query is 1–200 chars; site is 1+ chars (allowlist enforced in tool fn).
 """
 
-import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from agent.config import ALLOWED_URL_PREFIX
-
-_JOB_ID_RE = re.compile(r"^job_\d{3}$")
 _MAX_TEXT = 20_000
-_URL_PREFIX = ALLOWED_URL_PREFIX + "jobs/"
 
 
 # ---------------------------------------------------------------------------
@@ -37,16 +32,26 @@ class ReadJobPostingIn(BaseModel):
     @field_validator("url")
     @classmethod
     def _url_valid(cls, v: str) -> str:
-        if not v.startswith(_URL_PREFIX):
-            raise ValueError(
-                f"url must start with {_URL_PREFIX!r}, got {v!r}"
-            )
-        job_id_part = v[len(_URL_PREFIX):]
-        if not _JOB_ID_RE.match(job_id_part):
-            raise ValueError(
-                f"url must end with a job id matching job_NNN, got {job_id_part!r}"
-            )
-        return v
+        from agent.sites import own_base_url, is_url_allowed
+        from agent.job_ids import is_valid_job_id
+
+        # Accept own-site /jobs/<job_id> URLs with a valid job_id.
+        own_prefix = own_base_url() + "/jobs/"
+        if v.startswith(own_prefix):
+            job_id = v[len(own_prefix):]
+            if not is_valid_job_id(job_id):
+                raise ValueError(
+                    f"own-site URL has invalid job_id {job_id!r}"
+                )
+            return v
+
+        # Accept any URL the allowlist recognises (https:// only).
+        if is_url_allowed(v):
+            return v
+
+        raise ValueError(
+            f"URL must be an own-site /jobs/<id> URL or from an allowed site, got {v!r}"
+        )
 
 
 class ReadMasterCvIn(BaseModel):
@@ -86,9 +91,10 @@ class SaveTailoredCvIn(BaseModel):
     @field_validator("job_id")
     @classmethod
     def _job_id_format(cls, v: str) -> str:
-        if not _JOB_ID_RE.match(v):
+        from agent.job_ids import is_valid_job_id
+        if not is_valid_job_id(v):
             raise ValueError(
-                f"job_id must match job_NNN, got {v!r}"
+                f"job_id must match job_NNN or site-xxxxxxxx, got {v!r}"
             )
         return v
 
@@ -103,9 +109,10 @@ class SubmitApplicationIn(BaseModel):
     @field_validator("job_id")
     @classmethod
     def _job_id_format(cls, v: str) -> str:
-        if not _JOB_ID_RE.match(v):
+        from agent.job_ids import is_valid_job_id
+        if not is_valid_job_id(v):
             raise ValueError(
-                f"job_id must match job_NNN, got {v!r}"
+                f"job_id must match job_NNN or site-xxxxxxxx, got {v!r}"
             )
         return v
 

@@ -11,7 +11,7 @@ Our group (Persons A, B, C and D) would like your approval for our Project 3 top
 Scope:
 - Job search and reading: the agent can search and read job postings from an approved allowlist of real Tunisian/remote job sites (tanitjobs, keejob, weworkremotely) in read-only mode.
 - CV tailoring: documents are generated using only facts from the candidate's master CV (no fabrication).
-- Submission: the agent submits ONLY to the fake sandbox portal (mock:// URLs). It never submits to real job sites. Human approval is required before every submission.
+- Submission: the agent submits ONLY to the candidate's own apply site (loopback). It never submits to real job boards. Human approval is required before every submission.
 - No real personal data is submitted anywhere.
 
 Please let us know if this scope is acceptable or if you would like anything changed.
