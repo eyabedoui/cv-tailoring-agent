@@ -3,3 +3,5 @@ pydantic>=2.0
 pytest
 chainlit>=2.0
 flask>=3.0
+browser-use>=1.0
+firecrawl-py>=4.0

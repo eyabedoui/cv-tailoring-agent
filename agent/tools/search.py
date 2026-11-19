@@ -3,7 +3,7 @@ find_jobs tool and search client implementations.
 
 WEB_MODE env var selects the client:
   "fake" or "replay" (default) → FakeSearchClient (deterministic, offline)
-  "live"                       → LiveSearchClient (placeholder, not yet implemented)
+  "live"                       → BrowserSearchClient (browser-use + OpenAI)
 """
 
 from __future__ import annotations
@@ -89,28 +89,14 @@ class FakeSearchClient:
 
 
 # ---------------------------------------------------------------------------
-# LiveSearchClient (placeholder)
-# ---------------------------------------------------------------------------
-
-class LiveSearchClient:
-    """Placeholder — real web search is not yet implemented."""
-
-    def search(self, query: str, site: str) -> list[dict]:
-        raise _LiveNotImplemented()
-
-
-class _LiveNotImplemented(Exception):
-    pass
-
-
-# ---------------------------------------------------------------------------
 # Client factory
 # ---------------------------------------------------------------------------
 
 def _get_search_client() -> SearchClient:
     mode = os.environ.get("WEB_MODE", "fake").lower().strip()
     if mode == "live":
-        return LiveSearchClient()
+        from agent.tools.clients import BrowserSearchClient
+        return BrowserSearchClient()
     return FakeSearchClient()
 
 
@@ -149,12 +135,16 @@ def find_jobs(query: str, site: str, _client: SearchClient | None = None) -> dic
             f"Site {site!r} is not allowed. Allowed sites: {', '.join(sorted(allowed))}.",
         )
 
-    # --- execute search ---
+    # --- throttle + execute search (live mode only) ---
+    mode = os.environ.get("WEB_MODE", "fake").lower().strip()
+    if mode == "live" and _client is None:
+        from agent.tools.throttle import throttle
+        from agent.sites import host_for
+        throttle(host_for(site))
+
     client = _client or _get_search_client()
     try:
         raw_results = client.search(query, site)
-    except _LiveNotImplemented:
-        return make_error(PORTAL_DOWN, "Live search is not implemented yet.")
     except Exception as exc:
         return make_error(PORTAL_DOWN, f"Search failed: {exc}")
 
@@ -181,6 +171,12 @@ def find_jobs(query: str, site: str, _client: SearchClient | None = None) -> dic
             "site":    site,
             "snippet": str(item.get("snippet", ""))[:240],
         })
+
+    # --- usage log (live mode only) ---
+    if mode == "live" and _client is None:
+        from agent.tools.usage_log import log_usage
+        from agent.sites import host_for
+        log_usage("find_jobs", host_for(site), "success")
 
     return {
         "jobs": jobs,

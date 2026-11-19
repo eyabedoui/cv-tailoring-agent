@@ -7,7 +7,7 @@ Commands: setup | seed | reset | run | serve | export-static | export
 import argparse
 import sys
 
-from sandbox.manage import export, export_static, reset, run, seed, serve, setup
+from sandbox.manage import export, export_static, reset, run, seed, serve, setup, setup_web, snapshot
 
 
 def main() -> None:
@@ -15,6 +15,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("setup", help="Create sandbox directory structure.")
+    sub.add_parser("setup-web", help="Install Playwright Chromium (required for WEB_MODE=live).")
     sub.add_parser("seed", help="Populate sandbox/postings/ with 25 job postings.")
     sub.add_parser("reset", help="Clear sandbox output and state (keeps postings).")
 
@@ -47,10 +48,20 @@ def main() -> None:
                            help="Alias for export-static.")
     exp_p.add_argument("--dest", default=None, metavar="PATH")
 
+    snap_p = sub.add_parser("snapshot",
+                            help="Fetch URL with Firecrawl and save to sandbox/snapshots/.")
+    snap_p.add_argument("url", help="Job posting URL to snapshot.")
+    snap_p.add_argument(
+        "--snapshots-dir", default=None, metavar="PATH",
+        help="Snapshots directory (default: sandbox/snapshots/).",
+    )
+
     args = parser.parse_args()
 
     if args.command == "setup":
         setup()
+    elif args.command == "setup-web":
+        setup_web()
     elif args.command == "seed":
         seed()
     elif args.command == "reset":
@@ -64,6 +75,8 @@ def main() -> None:
         export_static(dest=args.dest, postings_dir=args.postings_dir)
     elif args.command == "export":
         export(dest=args.dest)
+    elif args.command == "snapshot":
+        snapshot(url=args.url, snapshots_dir=args.snapshots_dir)
     else:
         parser.print_help()
         sys.exit(1)
