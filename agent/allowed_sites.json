@@ -1,0 +1,8 @@
+{
+  "sites": {
+    "tanitjobs": {"host": "www.tanitjobs.com", "enabled": true},
+    "keejob":    {"host": "www.keejob.com",    "enabled": true},
+    "weworkremotely": {"host": "weworkremotely.com", "enabled": true}
+  },
+  "fallback_note": "emploi.nat.tn may replace keejob if keejob blocks automation; not enabled"
+}

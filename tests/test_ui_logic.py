@@ -100,7 +100,7 @@ def test_map_tool_error_all_codes_have_message():
         assert "An error occurred" not in result or code not in [
             "INVALID_ARGUMENTS", "UNKNOWN_TOOL", "NOT_FOUND", "EMPTY_POSTING",
             "PORTAL_DOWN", "TIMEOUT", "BAD_RESPONSE", "DUPLICATE_SUBMISSION",
-            "PATH_NOT_ALLOWED",
+            "PATH_NOT_ALLOWED", "SITE_NOT_ALLOWED", "SITE_BLOCKED",
         ]
 
 

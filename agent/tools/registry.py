@@ -10,7 +10,8 @@ from pydantic import ValidationError
 
 from agent.tools import reads
 from agent.tools import writes
-from agent.errors import make_error, INVALID_ARGUMENTS, UNKNOWN_TOOL, BAD_RESPONSE
+from agent.tools import search as search_mod
+from agent.errors import make_error, INVALID_ARGUMENTS, UNKNOWN_TOOL, BAD_RESPONSE, SITE_NOT_ALLOWED
 from agent.tools.schemas import TOOL_SCHEMA_MAP
 
 
@@ -21,6 +22,7 @@ TOOL_FUNCTIONS = {
     "check_format": reads.check_format,
     "save_tailored_cv": writes.save_tailored_cv,
     "submit_application": writes.submit_application,
+    "find_jobs": search_mod.find_jobs,
 }
 
 
@@ -34,6 +36,15 @@ def _make_validation_message(exc: ValidationError) -> str:
 
 
 TOOL_SCHEMAS = [
+    {
+        "name": "find_jobs",
+        "description": "Search for job postings on an allowed site.",
+        "parameters": {
+            "query": "string",
+            "site": "string",
+        },
+        "input_schema": TOOL_SCHEMA_MAP["find_jobs"][0].model_json_schema(),
+    },
     {
         "name": "read_job_posting",
         "description": "Read a job posting using its URL.",
@@ -98,6 +109,20 @@ def execute_tool(tool_name: str, arguments: dict) -> dict:
 
     if tool_name not in TOOL_FUNCTIONS:
         return make_error(UNKNOWN_TOOL, f"Unknown tool: {tool_name}")
+
+    # Pre-schema check: http/https URLs to read_job_posting must pass the
+    # site allowlist; non-allowlisted URLs return SITE_NOT_ALLOWED rather
+    # than INVALID_ARGUMENTS so the model knows why the URL was rejected.
+    if tool_name == "read_job_posting":
+        url = arguments.get("url", "")
+        if isinstance(url, str) and url.lower().startswith(("http://", "https://")):
+            from agent.sites import is_url_allowed, site_names
+            if not is_url_allowed(url):
+                names = ", ".join(sorted(site_names()))
+                return make_error(
+                    SITE_NOT_ALLOWED,
+                    f"URL is not from an allowed site. Allowed sites: {names}.",
+                )
 
     in_model, out_model = TOOL_SCHEMA_MAP[tool_name]
 

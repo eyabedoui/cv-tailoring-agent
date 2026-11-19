@@ -107,6 +107,14 @@ Possible stop reasons:
 - `checkpoint_timeout`
 - `done`
 
+Tool names that appear in `tool_name`:
+`find_jobs`, `read_job_posting`, `read_master_cv`, `match_skills`,
+`check_format`, `save_tailored_cv`, `submit_application`, `human_checkpoint`.
+
+For `find_jobs`, the `input` object contains `query` and `site`.
+The `output` object contains `count` (integer) and `truncated` (bool); full
+job list is not logged to avoid storing untrusted bulk content.
+
 ## 5. Example
 
 ```json

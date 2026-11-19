@@ -10,6 +10,7 @@ one of the following behaviours:
   fail_once        – first call fails (PORTAL_DOWN, retryable), all later
                      calls succeed; state tracked in state/fault_state.json
   reject_duplicate – submit_application always returns DUPLICATE_SUBMISSION
+  blocked          – find_jobs returns SITE_BLOCKED (search context only)
   unknown          – returns an error code not in the known ERROR_CODES set,
                      testing agent resilience to unexpected responses
 
@@ -21,7 +22,7 @@ import json
 import os
 from pathlib import Path
 
-from agent.errors import BAD_RESPONSE, DUPLICATE_SUBMISSION, PORTAL_DOWN, TIMEOUT, make_error
+from agent.errors import BAD_RESPONSE, DUPLICATE_SUBMISSION, PORTAL_DOWN, SITE_BLOCKED, TIMEOUT, make_error
 
 _FAULT_STATE_FILENAME = "fault_state.json"
 
@@ -54,6 +55,13 @@ def check_fault(context: str, state_dir: Path) -> dict | None:
         return make_error(
             DUPLICATE_SUBMISSION,
             "Portal rejected duplicate application (FAULT_MODE=reject_duplicate)",
+        )
+
+    if mode == "blocked" and context == "search":
+        return make_error(
+            SITE_BLOCKED,
+            "Site blocked automation (FAULT_MODE=blocked)",
+            retryable=False,
         )
 
     if mode == "unknown":

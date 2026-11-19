@@ -79,6 +79,75 @@ FAKE_WALKTHROUGH_RESPONSES = [
 ]
 
 
+SEARCH_THEN_TAILOR_RESPONSES = [
+    {
+        "type": "tool_call",
+        "tool_name": "find_jobs",
+        "arguments": {"query": "python engineer", "site": "tanitjobs"},
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "tool_call",
+        "tool_name": "read_job_posting",
+        "arguments": {"url": "mock://jobs/job_001"},
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "tool_call",
+        "tool_name": "read_master_cv",
+        "arguments": {},
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "tool_call",
+        "tool_name": "match_skills",
+        "arguments": {
+            "cv_text": "Python, SQL",
+            "job": {"title": "Junior AI Engineer", "requirements": ["Python"]},
+        },
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "tool_call",
+        "tool_name": "save_tailored_cv",
+        "arguments": {
+            "text": "Tailored CV for Junior AI Engineer",
+            "job_id": "job_001",
+            "kind": "cv",
+        },
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "tool_call",
+        "tool_name": "save_tailored_cv",
+        "arguments": {
+            "text": "Dear Hiring Manager, I am excited to apply after finding the posting via search.",
+            "job_id": "job_001",
+            "kind": "cover_letter",
+        },
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "tool_call",
+        "tool_name": "submit_application",
+        "arguments": {
+            "cv_path": "sandbox/output/cv_job_001.md",
+            "cover_letter_path": "sandbox/output/cover_letter_job_001.md",
+            "job_id": "job_001",
+        },
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+    {
+        "type": "final",
+        "content": (
+            "Found the job via search, tailored the CV and cover letter, "
+            "and submitted the application for Junior AI Engineer."
+        ),
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    },
+]
+
+
 def _load_dotenv():
     """Read KEY=VALUE pairs from .env in cwd and set missing env vars.
 

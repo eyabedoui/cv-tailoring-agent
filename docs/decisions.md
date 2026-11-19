@@ -12,10 +12,11 @@ The human approval checkpoint and the final answer are NOT steps.
 agent stops with `stop_reason = "no_match"` rather than tailoring an obviously
 unsuitable application.
 
-## Tool contract (unchanged)
+## Tool contract
 
 | Tool | Returns |
 |------|---------|
+| `find_jobs(query, site)` | `jobs (list), site, count, truncated` |
 | `read_job_posting(url)` | `job_id, title, company, requirements, text` |
 | `read_master_cv()` | `text, sections` |
 | `match_skills(cv_text, job)` | `matched, missing, score` (0–1) |
@@ -26,9 +27,18 @@ unsuitable application.
 `TOOL_SCHEMAS` and `execute_tool(name, args)` in `agent/tools/registry.py` are the
 canonical registry interface. Tool names must never be renamed.
 
-## Mock URLs
-Only `mock://jobs/<id>` URLs are accepted by the stub tools.
-Real URLs will be handled by Person B's implementations.
+`find_jobs` is read-only and NOT gated by the human checkpoint.
+Only `submit_application` is gated.
+
+## Mock URLs and site allowlist
+`mock://jobs/<id>` URLs are accepted by the sandbox read tool.
+For real job sites, only URLs from `agent/allowed_sites.json` are accepted:
+- **tanitjobs** — www.tanitjobs.com
+- **keejob** — www.keejob.com
+- **weworkremotely** — weworkremotely.com
+
+Non-allowlisted http/https URLs return `SITE_NOT_ALLOWED` from `read_job_posting`.
+Live search is placeholder-only (`LiveSearchClient` raises `PORTAL_DOWN`).
 
 ## Candidate ID
 One fixed candidate: `CANDIDATE_ID = "candidate_001"` (see `agent/config.py`).
@@ -55,8 +65,13 @@ requirements.txt
 ```
 
 ## make targets
-- `make setup` — `pip install -r requirements.txt`
-- `make run`   — `python -m agent --model openai --auto-approve`
+- `make install`   — `pip install -r requirements.txt`
+- `make run`       — `python -m agent --model openai` (waits for human approval)
+- `make run-auto`  — same but with `--auto-approve` (CI / demos only)
+- `make demo-fake` — fake model, auto-approved, no API key required
+- `make eval-fake` — run eval scenarios with fake model
+
+Use `make PYTHON=python <target>` on Windows to override the Python binary.
 
 ## Model provider: OpenAI
 
@@ -92,6 +107,8 @@ See `agent/errors.py`. Error codes:
 - `BAD_RESPONSE` — model response could not be parsed
 - `DUPLICATE_SUBMISSION` — application already submitted for this job
 - `PATH_NOT_ALLOWED` — save path is outside the sandbox
+- `SITE_NOT_ALLOWED` — URL or site name is not in the enabled allowlist (retryable=false)
+- `SITE_BLOCKED` — site refused automation (captcha, login wall, 403/429); retryable=false
 
 Errors are dicts `{"error": CODE, "message": "...", "retryable": bool}`.
 Messages are plain text the model can act on — never stack traces.
