@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from agent.config import SANDBOX_DIR
-from agent.errors import make_error, NOT_FOUND, EMPTY_POSTING
+from agent.errors import make_error, NOT_FOUND, EMPTY_POSTING, SITE_NOT_ALLOWED
 from sandbox.faults import check_fault
 from sandbox.portal import Portal
 
@@ -67,6 +67,17 @@ _SKILL_ALIASES: dict[str, list[str]] = {
 
 def read_job_posting(url: str, _portal: Portal | None = None) -> dict:
     """Fetch a job posting by mock URL and return its structured data."""
+    # Defense-in-depth: if an http/https URL somehow reaches here, re-check
+    # the allowlist (the registry pre-check is the primary gate).
+    if url.lower().startswith(("http://", "https://")):
+        from agent.sites import is_url_allowed, site_names
+        if not is_url_allowed(url):
+            names = ", ".join(sorted(site_names()))
+            return make_error(
+                SITE_NOT_ALLOWED,
+                f"URL is not from an allowed site. Allowed sites: {names}.",
+            )
+
     portal = _portal if _portal is not None else _get_portal()
 
     fault = check_fault("read", portal.state_dir)

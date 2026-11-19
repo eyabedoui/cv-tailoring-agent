@@ -72,6 +72,8 @@ _TOOL_ERROR_MAP: dict[str, str] = {
     "BAD_RESPONSE":         "The model returned a response that could not be parsed.",
     "DUPLICATE_SUBMISSION": "An application for this job has already been submitted.",
     "PATH_NOT_ALLOWED":     "The file path is outside the allowed sandbox directory.",
+    "SITE_NOT_ALLOWED":     "The site is not in the allowed list; only approved job sites can be searched.",
+    "SITE_BLOCKED":         "The job site blocked the request (captcha, login wall, or rate limit).",
 }
 
 _GENERIC_TOOL_ERROR = "An error occurred while running a tool."

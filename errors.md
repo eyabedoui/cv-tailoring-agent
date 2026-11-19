@@ -11,3 +11,5 @@ One row per error class. Every class needs at least one test. The "Test ids" col
 | Loop | Stops on the same call three times (repeated_call) or at 12 steps | A6 tests | TBD | A6 |
 | Timeout | Tool timeout is retried, checkpoint timeout counts as rejection | FAULT_MODE=timeout (B6), checkpoint timeout test (A6) | TBD | B6, A6 |
 | User changes mind | Reject stops with no submit, change request allows at most 2 revisions | A7 tests, C5 scenarios | TBD | A7, C5 |
+| Site not allowed | find_jobs/read_job_posting return SITE_NOT_ALLOWED when site or URL is not in the allowlist; agent tells candidate and asks what to do | test_find_jobs.py, test_sites.py (A13) | TBD | A13 |
+| Site blocked | find_jobs returns SITE_BLOCKED (captcha, login wall, FAULT_MODE=blocked); agent tells candidate plainly, does not retry same call | test_find_jobs.py (A13) | TBD | A13 |

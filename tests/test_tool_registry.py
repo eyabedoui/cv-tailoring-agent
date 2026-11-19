@@ -10,14 +10,15 @@ from sandbox.portal import Portal
 import agent.tools.writes as _writes_mod
 
 
-def test_registry_contains_six_tools():
-    assert len(TOOL_FUNCTIONS) == 6
+def test_registry_contains_seven_tools():
+    assert len(TOOL_FUNCTIONS) == 7
 
 
-def test_all_six_tool_schemas_are_available():
+def test_all_seven_tool_schemas_are_available():
     names = {tool["name"] for tool in TOOL_SCHEMAS}
 
     assert names == {
+        "find_jobs",
         "read_job_posting",
         "read_master_cv",
         "match_skills",

@@ -157,8 +157,8 @@ def test_submit_application_in_rejects_bad_job_id():
 # TOOL_SCHEMA_MAP completeness
 # ---------------------------------------------------------------------------
 
-def test_tool_schema_map_has_six_entries():
-    assert len(TOOL_SCHEMA_MAP) == 6
+def test_tool_schema_map_has_seven_entries():
+    assert len(TOOL_SCHEMA_MAP) == 7
 
 
 def test_tool_schema_map_values_are_model_pairs():
@@ -189,9 +189,10 @@ def test_read_job_posting_input_schema_has_url_property():
 # ---------------------------------------------------------------------------
 
 def test_execute_tool_rejects_bad_url_prefix():
+    # Non-allowlisted https:// URLs now return SITE_NOT_ALLOWED (not INVALID_ARGUMENTS)
+    # because the site-allowlist pre-check fires before schema validation.
     result = execute_tool("read_job_posting", {"url": "https://jobs.example.com/job_001"})
-    assert result["error"] == "INVALID_ARGUMENTS"
-    assert "url" in result["message"]
+    assert result["error"] == "SITE_NOT_ALLOWED"
 
 
 def test_execute_tool_rejects_bad_job_id_in_url():

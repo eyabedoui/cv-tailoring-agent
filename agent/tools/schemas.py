@@ -1,15 +1,16 @@
 
 """
-Pydantic v2 input/output schemas for the six CV-tailoring tools.
+Pydantic v2 input/output schemas for the CV-tailoring tools.
 
 Rules applied:
 - extra="forbid" on all models (no undocumented fields accepted).
 - Strings are non-empty and length-limited.
-- job_id must match ^job_\\d{3}$.
+- job_id must match ^job_\\d{3}$ for sandbox tools.
 - kind is Literal["cv","cover_letter"].
 - read_job_posting url must start with ALLOWED_URL_PREFIX + "jobs/" and end
   with a valid job_id pattern.
 - job argument for match_skills must have a requirements list.
+- find_jobs query is 1–200 chars; site is 1+ chars (allowlist enforced in tool fn).
 """
 
 import re
@@ -110,6 +111,17 @@ class SubmitApplicationIn(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# find_jobs — input
+# ---------------------------------------------------------------------------
+
+class FindJobsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: Annotated[str, Field(min_length=1, max_length=200)]
+    site: Annotated[str, Field(min_length=1)]
+
+
+# ---------------------------------------------------------------------------
 # Output models
 # ---------------------------------------------------------------------------
 
@@ -159,6 +171,15 @@ class SubmitApplicationOut(BaseModel):
     application_id: str
 
 
+class FindJobsOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    jobs: list[dict[str, Any]]
+    site: str
+    count: int
+    truncated: bool
+
+
 # ---------------------------------------------------------------------------
 # Registry: name -> (InputModel, OutputModel)
 # ---------------------------------------------------------------------------
@@ -170,4 +191,5 @@ TOOL_SCHEMA_MAP: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     "check_format":      (CheckFormatIn,     CheckFormatOut),
     "save_tailored_cv":  (SaveTailoredCvIn,  SaveTailoredCvOut),
     "submit_application":(SubmitApplicationIn, SubmitApplicationOut),
+    "find_jobs":         (FindJobsIn,         FindJobsOut),
 }
