@@ -187,3 +187,43 @@ def test_unknown_fault_returns_non_standard_error_code(tmp_path, monkeypatch):
     # "FAULT_INJECTED" is not in ERROR_CODES but is_error() still returns True
     # because is_error() now checks for any dict with a string "error" key.
     assert result.get("error") == "FAULT_INJECTED"
+
+
+def test_unknown_fault_on_submit(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAULT_MODE", "unknown")
+    portal = _portal(tmp_path)
+    result = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=portal)
+    assert result.get("error") == "FAULT_INJECTED"
+
+
+# ---------------------------------------------------------------------------
+# No FAULT_MODE (default) — sanity checks that normal path is unaffected
+# ---------------------------------------------------------------------------
+
+def test_no_fault_mode_read_succeeds(tmp_path, monkeypatch):
+    monkeypatch.delenv("FAULT_MODE", raising=False)
+    client = _seeded_client(tmp_path)
+    result = read_job_posting(own_job_url("job_001"), _client=client)
+    assert result.get("job_id") == "job_001"
+
+
+def test_no_fault_mode_submit_succeeds(tmp_path, monkeypatch):
+    monkeypatch.delenv("FAULT_MODE", raising=False)
+    portal = _portal(tmp_path)
+    result = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=portal)
+    assert result["status"] == "submitted"
+
+
+# ---------------------------------------------------------------------------
+# check_fault direct unit tests
+# ---------------------------------------------------------------------------
+
+def test_check_fault_empty_string_returns_none(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAULT_MODE", "")
+    assert check_fault("read", tmp_path) is None
+
+
+def test_check_fault_reject_duplicate_only_fires_for_submit(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAULT_MODE", "reject_duplicate")
+    result = check_fault("read", tmp_path)
+    assert result is None  # reject_duplicate does not affect reads

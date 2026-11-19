@@ -13,6 +13,7 @@ logs/
 sandbox/postings/
 sandbox/output/
 sandbox/state/
+sandbox/site/
 
 eval/results/*/
 
