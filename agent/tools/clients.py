@@ -125,6 +125,13 @@ class FirecrawlPostingClient:
 
     Env vars:
       FIRECRAWL_API_KEY – required for live runs
+
+    Error mapping:
+      404 / no content          → NOT_FOUND
+      401 / 403 / login/captcha → SITE_BLOCKED
+      429 / 5xx / connection    → PORTAL_DOWN (retryable)
+      timeout                   → TIMEOUT (retryable)
+      empty markdown            → EMPTY_POSTING
     """
 
     def fetch(self, url: str) -> dict:
@@ -132,6 +139,7 @@ class FirecrawlPostingClient:
         from pathlib import Path
         from agent.config import SANDBOX_DIR
         from firecrawl import V1FirecrawlApp
+        from agent.errors import PORTAL_DOWN as _PORTAL_DOWN, SITE_BLOCKED as _SITE_BLOCKED, TIMEOUT as _TIMEOUT, EMPTY_POSTING as _EMPTY_POSTING
 
         fault = check_fault("read", Path(SANDBOX_DIR) / "state")
         if fault is not None:
@@ -142,14 +150,49 @@ class FirecrawlPostingClient:
         try:
             response = app.scrape_url(url, formats=["markdown"])
         except Exception as exc:
-            from agent.errors import PORTAL_DOWN
-            return make_error(PORTAL_DOWN, f"Firecrawl scrape failed: {exc}")
+            return _map_firecrawl_error(exc, url)
 
         markdown = response.markdown if response.markdown else ""
         if not markdown.strip():
-            return make_error(NOT_FOUND, f"No content scraped from {url!r}")
+            return make_error(_EMPTY_POSTING, f"No content scraped from {url!r}")
 
         return {"markdown": markdown, "url": url}
+
+
+def _map_firecrawl_error(exc: Exception, url: str) -> dict:
+    """Map a firecrawl exception to the agent error contract."""
+    from agent.errors import NOT_FOUND, PORTAL_DOWN, SITE_BLOCKED, TIMEOUT, EMPTY_POSTING
+    try:
+        from firecrawl.v2.utils.error_handler import (
+            RateLimitError, InternalServerError, UnauthorizedError,
+            RequestTimeoutError, DNSResolutionError, TLSError,
+            WebsiteNotSupportedError, ProviderTermsRequiredError, BadRequestError,
+        )
+        if isinstance(exc, RequestTimeoutError):
+            return make_error(TIMEOUT, f"Firecrawl timed out scraping {url!r}: {exc}", retryable=True)
+        if isinstance(exc, (UnauthorizedError, WebsiteNotSupportedError, ProviderTermsRequiredError)):
+            return make_error(SITE_BLOCKED, f"Site blocked or requires login for {url!r}: {exc}", retryable=False)
+        if isinstance(exc, (RateLimitError, InternalServerError)):
+            return make_error(PORTAL_DOWN, f"Firecrawl error for {url!r}: {exc}", retryable=True)
+        if isinstance(exc, (DNSResolutionError, TLSError)):
+            return make_error(PORTAL_DOWN, f"Connection error for {url!r}: {exc}", retryable=True)
+        if isinstance(exc, BadRequestError):
+            # Check for 404-like message
+            msg = str(exc).lower()
+            if "404" in msg or "not found" in msg:
+                return make_error(NOT_FOUND, f"Page not found: {url!r}", retryable=False)
+            return make_error(PORTAL_DOWN, f"Bad request for {url!r}: {exc}", retryable=False)
+    except ImportError:
+        pass
+    # Fallback: check HTTP status code if available
+    status = getattr(exc, "status_code", None)
+    if status == 404:
+        return make_error(NOT_FOUND, f"Page not found (404): {url!r}", retryable=False)
+    if status in (401, 403):
+        return make_error(SITE_BLOCKED, f"Access denied ({status}): {url!r}", retryable=False)
+    if status == 429 or (status and status >= 500):
+        return make_error(PORTAL_DOWN, f"Server error ({status}): {url!r}", retryable=True)
+    return make_error(PORTAL_DOWN, f"Firecrawl scrape failed for {url!r}: {exc}", retryable=True)
 
 
 class BrowserSearchClient:

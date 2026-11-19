@@ -204,10 +204,10 @@ def test_find_jobs_blocked_fault_returns_site_blocked(monkeypatch, tmp_path):
     assert result.get("retryable") is False
 
 
-def test_find_jobs_blocked_does_not_affect_other_tools(monkeypatch, tmp_path):
+def test_find_jobs_blocked_also_affects_read_job_posting(monkeypatch, tmp_path):
     _clear_cache()
     monkeypatch.setenv("FAULT_MODE", "blocked")
-    # read_job_posting (context="read") should NOT be affected by blocked
+    # blocked fires for both search (find_jobs) and read (read_job_posting)
     from agent.sites import own_job_url
     from agent.tools.reads import read_job_posting
     from agent.tools.clients import FakePostingClient
@@ -216,7 +216,22 @@ def test_find_jobs_blocked_does_not_affect_other_tools(monkeypatch, tmp_path):
     seed(postings_dir=tmp_path / "postings")
     client = FakePostingClient(sandbox_dir=str(tmp_path))
     result = read_job_posting(own_job_url("job_001"), _client=client)
-    assert "error" not in result
+    assert result["error"] == "SITE_BLOCKED"
+
+
+def test_find_jobs_blocked_does_not_affect_submit(monkeypatch, tmp_path):
+    _clear_cache()
+    monkeypatch.setenv("FAULT_MODE", "blocked")
+    # blocked does NOT fire for submit_application
+    from agent.tools.writes import submit_application
+    from sandbox.portal import Portal
+    portal = Portal(sandbox_dir=str(tmp_path))
+    cv = "cv_job_001.md"
+    cl = "cover_letter_job_001.md"
+    (portal.output_dir / cv).write_text("CV", encoding="utf-8")
+    (portal.output_dir / cl).write_text("CL", encoding="utf-8")
+    result = submit_application(cv, cl, "job_001", _portal=portal)
+    assert result.get("status") == "submitted"
 
 
 # ---------------------------------------------------------------------------

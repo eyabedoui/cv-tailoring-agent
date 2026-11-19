@@ -153,10 +153,15 @@ class _FakeSubmitClient:
 
 
 def test_submit_application_uses_submit_client_when_injected(tmp_path):
+    portal = Portal(sandbox_dir=str(tmp_path))
+    (portal.output_dir / "cv_job_001.md").write_text("CV", encoding="utf-8")
+    (portal.output_dir / "cover_letter_job_001.md").write_text("CL", encoding="utf-8")
+    # Simulate Flask server having recorded the application after browser submit
+    portal.record_application("job_001", "cv_job_001.md", "cover_letter_job_001.md")
     client = _FakeSubmitClient({"status": "submitted", "application_id": "app_job_001"})
     result = submit_application(
-        "output/cv.md", "output/cl.md", "job_001",
-        _portal=Portal(sandbox_dir=str(tmp_path)),
+        "cv_job_001.md", "cover_letter_job_001.md", "job_001",
+        _portal=portal,
         _submit_client=client,
     )
     assert result["status"] == "submitted"
@@ -182,9 +187,14 @@ def test_submit_application_fault_fires_before_submit_client(tmp_path, monkeypat
 
 def test_submit_application_live_mode_uses_browser_client(tmp_path, monkeypatch, mock_browser_submit):
     monkeypatch.setenv("WEB_MODE", "live")
+    portal = Portal(sandbox_dir=str(tmp_path))
+    (portal.output_dir / "cv_job_001.md").write_text("CV", encoding="utf-8")
+    (portal.output_dir / "cover_letter_job_001.md").write_text("CL", encoding="utf-8")
+    # Simulate Flask server having recorded the application after browser submit
+    portal.record_application("job_001", "cv_job_001.md", "cover_letter_job_001.md")
     result = submit_application(
-        "output/cv.md", "output/cl.md", "job_001",
-        _portal=Portal(sandbox_dir=str(tmp_path)),
+        "cv_job_001.md", "cover_letter_job_001.md", "job_001",
+        _portal=portal,
     )
     assert result["status"] == "submitted"
 
@@ -192,6 +202,8 @@ def test_submit_application_live_mode_uses_browser_client(tmp_path, monkeypatch,
 def test_submit_application_fake_mode_still_uses_portal(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_MODE", "fake")
     portal = Portal(sandbox_dir=str(tmp_path))
-    result = submit_application("output/cv.md", "output/cl.md", "job_001", _portal=portal)
+    (portal.output_dir / "cv_job_001.md").write_text("CV", encoding="utf-8")
+    (portal.output_dir / "cover_letter_job_001.md").write_text("CL", encoding="utf-8")
+    result = submit_application("cv_job_001.md", "cover_letter_job_001.md", "job_001", _portal=portal)
     assert result["status"] == "submitted"
     assert portal.has_applied("job_001")

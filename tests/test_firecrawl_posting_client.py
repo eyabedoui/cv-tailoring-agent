@@ -86,7 +86,7 @@ def test_firecrawl_fetch_empty_markdown_returns_not_found(monkeypatch):
     monkeypatch.setattr(firecrawl, "V1FirecrawlApp", _FakeEmptyApp)
     client = FirecrawlPostingClient()
     result = client.fetch("https://www.keejob.com/offres-emploi/99")
-    assert result["error"] == "NOT_FOUND"
+    assert result["error"] == "EMPTY_POSTING"
 
 
 def test_firecrawl_fetch_exception_returns_portal_down(monkeypatch):

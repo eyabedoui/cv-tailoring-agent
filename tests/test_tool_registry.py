@@ -100,12 +100,15 @@ def test_save_tailored_cv_rejects_invalid_kind():
 
 
 def test_submit_application(tmp_path, monkeypatch):
-    monkeypatch.setattr(_writes_mod, "_portal", Portal(sandbox_dir=str(tmp_path)))
+    portal = Portal(sandbox_dir=str(tmp_path))
+    (portal.output_dir / "cv_job_001.md").write_text("CV", encoding="utf-8")
+    (portal.output_dir / "cover_letter_job_001.md").write_text("CL", encoding="utf-8")
+    monkeypatch.setattr(_writes_mod, "_portal", portal)
     result = execute_tool(
         "submit_application",
         {
-            "cv_path": "sandbox/output/cv_job_001.md",
-            "cover_letter_path": "sandbox/output/cover_letter_job_001.md",
+            "cv_path": "cv_job_001.md",
+            "cover_letter_path": "cover_letter_job_001.md",
             "job_id": "job_001",
         },
     )

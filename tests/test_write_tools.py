@@ -22,6 +22,15 @@ def _portal(tmp_path: Path) -> Portal:
     return Portal(sandbox_dir=str(tmp_path))
 
 
+def _make_cv_files(portal: Portal, job_id: str) -> tuple[str, str]:
+    """Create the expected CV and cover-letter files in portal.output_dir."""
+    cv_name = f"cv_{job_id}.md"
+    cl_name = f"cover_letter_{job_id}.md"
+    (portal.output_dir / cv_name).write_text(f"CV for {job_id}", encoding="utf-8")
+    (portal.output_dir / cl_name).write_text(f"CL for {job_id}", encoding="utf-8")
+    return cv_name, cl_name
+
+
 # ---------------------------------------------------------------------------
 # save_tailored_cv — happy path
 # ---------------------------------------------------------------------------
@@ -99,28 +108,34 @@ def test_save_cv_kind_mismatch_caught_by_pydantic_upstream():
 # ---------------------------------------------------------------------------
 
 def test_submit_returns_status_submitted(tmp_path):
-    result = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=_portal(tmp_path))
+    p = _portal(tmp_path)
+    cv, cl = _make_cv_files(p, "job_001")
+    result = submit_application(cv, cl, "job_001", _portal=p)
     assert result["status"] == "submitted"
 
 
 def test_submit_application_id_format(tmp_path):
-    result = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=_portal(tmp_path))
+    p = _portal(tmp_path)
+    cv, cl = _make_cv_files(p, "job_001")
+    result = submit_application(cv, cl, "job_001", _portal=p)
     assert result["application_id"] == "app_job_001"
 
 
 def test_submit_records_application_in_state(tmp_path):
     p = _portal(tmp_path)
-    submit_application("out/cv.md", "out/cl.md", "job_001", _portal=p)
+    cv, cl = _make_cv_files(p, "job_001")
+    submit_application(cv, cl, "job_001", _portal=p)
     assert p.has_applied("job_001")
 
 
 def test_submit_stores_paths_in_state(tmp_path):
     p = _portal(tmp_path)
-    submit_application("out/cv_job_001.md", "out/cl_job_001.md", "job_001", _portal=p)
+    cv, cl = _make_cv_files(p, "job_001")
+    submit_application(cv, cl, "job_001", _portal=p)
     with open(p.applications_file, encoding="utf-8") as fh:
         apps = json.load(fh)
-    assert apps["job_001"]["cv_path"] == "out/cv_job_001.md"
-    assert apps["job_001"]["cover_letter_path"] == "out/cl_job_001.md"
+    assert apps["job_001"]["cv_path"] == cv
+    assert apps["job_001"]["cover_letter_path"] == cl
 
 
 # ---------------------------------------------------------------------------
@@ -155,21 +170,25 @@ def test_submit_rejects_traversal_in_cover_letter_path(tmp_path):
 
 def test_submit_duplicate_returns_error(tmp_path):
     p = _portal(tmp_path)
-    submit_application("out/cv.md", "out/cl.md", "job_001", _portal=p)
-    result = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=p)
+    cv, cl = _make_cv_files(p, "job_001")
+    submit_application(cv, cl, "job_001", _portal=p)
+    result = submit_application(cv, cl, "job_001", _portal=p)
     assert result["error"] == "DUPLICATE_SUBMISSION"
 
 
 def test_submit_duplicate_error_message_contains_job_id(tmp_path):
     p = _portal(tmp_path)
-    submit_application("out/cv.md", "out/cl.md", "job_007", _portal=p)
-    result = submit_application("out/cv.md", "out/cl.md", "job_007", _portal=p)
+    cv, cl = _make_cv_files(p, "job_007")
+    submit_application(cv, cl, "job_007", _portal=p)
+    result = submit_application(cv, cl, "job_007", _portal=p)
     assert "job_007" in result["message"]
 
 
 def test_submit_different_jobs_both_succeed(tmp_path):
     p = _portal(tmp_path)
-    r1 = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=p)
-    r2 = submit_application("out/cv.md", "out/cl.md", "job_002", _portal=p)
+    cv1, cl1 = _make_cv_files(p, "job_001")
+    cv2, cl2 = _make_cv_files(p, "job_002")
+    r1 = submit_application(cv1, cl1, "job_001", _portal=p)
+    r2 = submit_application(cv2, cl2, "job_002", _portal=p)
     assert r1["status"] == "submitted"
     assert r2["status"] == "submitted"
