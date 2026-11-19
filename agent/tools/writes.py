@@ -68,6 +68,7 @@ def submit_application(
     cover_letter_path: str,
     job_id: str,
     _portal: Portal | None = None,
+    _submit_client=None,
 ) -> dict:
     """Record a submitted application.  Rejects path traversal and duplicates."""
     portal = _portal if _portal is not None else _get_portal()
@@ -90,7 +91,22 @@ def submit_application(
                 f"{label} must be a relative path without '..' components, got {path_str!r}",
             )
 
-    # DUPLICATE_SUBMISSION: each job may only be submitted once.
+    # WEB_MODE=live or explicit submit client: submit via browser
+    mode = os.environ.get("WEB_MODE", "fake").lower().strip()
+    if mode == "live" or _submit_client is not None:
+        from agent.tools.clients import BrowserSubmitClient
+        from agent.sites import own_apply_url
+        if mode == "live" and _submit_client is None:
+            from agent.tools.throttle import throttle
+            throttle("127.0.0.1")
+        client = _submit_client if _submit_client is not None else BrowserSubmitClient()
+        result = client.submit(job_id, own_apply_url(job_id))
+        if mode == "live" and _submit_client is None:
+            from agent.tools.usage_log import log_usage
+            log_usage("submit_application", "127.0.0.1", result.get("status", result.get("error", "unknown")))
+        return result
+
+    # WEB_MODE=fake: record directly via portal.
     if portal.has_applied(job_id):
         return make_error(
             DUPLICATE_SUBMISSION,

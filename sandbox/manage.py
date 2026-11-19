@@ -123,3 +123,60 @@ def export_static(dest: str | None = None, postings_dir: str | None = None) -> N
 def export(dest: str | None = None) -> None:
     """Alias for export_static (kept for backwards compatibility)."""
     export_static(dest=dest)
+
+
+def setup_web() -> None:
+    """
+    Install Playwright Chromium required by browser-use for WEB_MODE=live.
+
+    Safe to run multiple times; Playwright is idempotent.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        check=False,
+    )
+    if result.returncode != 0:
+        print("Warning: playwright install chromium failed — live browser automation will not work.")
+        print("Install Playwright manually: pip install playwright && python -m playwright install chromium")
+    else:
+        print("Chromium installed via Playwright.")
+
+
+def snapshot(url: str, snapshots_dir: str | None = None) -> None:
+    """
+    Fetch *url* with Firecrawl and save the markdown to sandbox/snapshots/<job_id>.json.
+
+    The job_id is derived from the URL using the same hash used by FakePostingClient
+    in replay mode.  Requires FIRECRAWL_API_KEY to be set.
+    """
+    import hashlib
+    from agent.tools.clients import FirecrawlPostingClient
+    from agent.sites import url_belongs_to_site, site_names
+
+    _snapshots_dir = Path(snapshots_dir) if snapshots_dir else _BASE / "snapshots"
+    _snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+    h = hashlib.sha256(url.encode()).hexdigest()[:8]
+    site = "ext"
+    for s in site_names():
+        if url_belongs_to_site(url, s):
+            site = s
+            break
+    job_id = f"{site}-{h}"
+
+    client = FirecrawlPostingClient()
+    result = client.fetch(url)
+
+    if "error" in result:
+        print(f"Error fetching {url!r}: {result['error']} – {result.get('message', '')}")
+        return
+
+    snapshot_path = _snapshots_dir / f"{job_id}.json"
+    data = {
+        "url": url,
+        "job_id": job_id,
+        "markdown": result.get("markdown", ""),
+    }
+    with open(snapshot_path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    print(f"Saved snapshot {job_id} → {snapshot_path}")

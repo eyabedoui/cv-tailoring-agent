@@ -9,6 +9,8 @@ module-level defaults (pointing to sandbox/) are used.
 
 from __future__ import annotations
 
+import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +28,14 @@ _cv_path: Path | None = None
 def _get_client():
     global _client_instance
     if _client_instance is None:
-        from agent.tools.clients import FakePostingClient
-        _client_instance = FakePostingClient()
+        import os
+        mode = os.environ.get("WEB_MODE", "fake").lower().strip()
+        if mode == "live":
+            from agent.tools.clients import FirecrawlPostingClient
+            _client_instance = FirecrawlPostingClient()
+        else:
+            from agent.tools.clients import FakePostingClient
+            _client_instance = FakePostingClient()
     return _client_instance
 
 
@@ -40,24 +48,118 @@ def _get_cv_path() -> Path:
 
 # ---------------------------------------------------------------------------
 # Skill aliases: map a lowercase requirement to alternative phrasings.
+# Includes French aliases for Tunisian job boards (W4b).
 # ---------------------------------------------------------------------------
 
 _SKILL_ALIASES: dict[str, list[str]] = {
     "javascript": ["js"],
     "typescript": ["ts"],
-    "unit testing": ["pytest", "jest", "unittest", "mocha", "jasmine"],
-    "version control": ["git", "svn"],
-    "data analysis": ["data analytics", "pandas"],
-    "machine learning": ["scikit-learn", "sklearn"],
-    "natural language processing": ["nlp"],
-    "rest api": ["rest apis", "restful"],
-    "rest apis": ["rest api", "restful"],
+    "python": ["python3"],
+    "sql": ["mysql", "postgresql", "sqlite", "postgres"],
+    "unit testing": ["pytest", "jest", "unittest", "mocha", "jasmine", "tests unitaires"],
+    "version control": ["git", "svn", "contrôle de version"],
+    "data analysis": ["data analytics", "pandas", "analyse de données", "analyse des données"],
+    "machine learning": ["scikit-learn", "sklearn", "ml", "apprentissage automatique"],
+    "natural language processing": ["nlp", "traitement du langage naturel"],
+    "rest api": ["rest apis", "restful", "api rest"],
+    "rest apis": ["rest api", "restful", "api rest"],
     "continuous integration": ["ci/cd", "github actions", "jenkins"],
     "node.js": ["nodejs", "node js"],
     "html/css": ["html", "css"],
-    "problem solving": ["problem-solving"],
-    "communication": ["written and verbal communication", "verbal communication"],
+    "problem solving": ["problem-solving", "résolution de problèmes"],
+    "communication": [
+        "written and verbal communication",
+        "verbal communication",
+        "communication écrite",
+        "communication verbale",
+    ],
+    "teamwork": ["travail en équipe", "esprit d'équipe", "team work", "work in a team"],
+    "api": ["rest api", "graphql", "web api"],
 }
+
+
+# ---------------------------------------------------------------------------
+# parse_posting — convert scraped markdown into the standard posting dict
+# ---------------------------------------------------------------------------
+
+def parse_posting(markdown: str, url: str) -> dict:
+    """
+    Extract job posting fields from scraped markdown.
+
+    Handles the own-site format produced by _posting_to_markdown and does
+    best-effort extraction from external pages.
+    """
+    from urllib.parse import urlparse
+    from agent.sites import is_own_url, url_belongs_to_site, site_names
+
+    lines = markdown.splitlines()
+
+    # Title: first level-1 heading
+    title = ""
+    for line in lines:
+        if line.startswith("# ") and not line.startswith("## "):
+            title = line[2:].strip()
+            break
+
+    # Company: **Company:** pattern
+    company = ""
+    for line in lines:
+        m = re.search(r"\*\*Company:\*\*\s*(.+)", line)
+        if m:
+            company = m.group(1).strip()
+            break
+
+    # Requirements: bullets under ## Requirements (or ## Prérequis)
+    requirements: list[str] = []
+    in_req = False
+    for line in lines:
+        if re.match(r"^## (Requirements|Prérequis|Skills Required)", line, re.IGNORECASE):
+            in_req = True
+            continue
+        if in_req:
+            if line.startswith("## "):
+                break
+            m = re.match(r"^[-*•]\s+(.+)", line)
+            if m:
+                requirements.append(m.group(1).strip())
+
+    # Text: ## Description (or ## About the Role / ## Responsibilities)
+    text_parts: list[str] = []
+    in_desc = False
+    for line in lines:
+        if re.match(r"^## (Description|About the Role|Responsibilities|À propos du poste)", line, re.IGNORECASE):
+            in_desc = True
+            continue
+        if in_desc:
+            if line.startswith("## "):
+                break
+            text_parts.append(line)
+    text = "\n".join(text_parts).strip()
+
+    # Fallback: use whole markdown as text if no section found
+    if not text:
+        text = markdown.strip()
+
+    # Build job_id
+    if is_own_url(url):
+        path = urlparse(url).path.strip("/").split("/")
+        job_id = path[-1] if path else "unknown"
+    else:
+        h = hashlib.sha256(url.encode()).hexdigest()[:8]
+        site = "ext"
+        for s in site_names():
+            if url_belongs_to_site(url, s):
+                site = s
+                break
+        job_id = f"{site}-{h}"
+
+    return {
+        "job_id": job_id,
+        "title": title,
+        "company": company,
+        "requirements": requirements,
+        "text": text,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -77,16 +179,33 @@ def read_job_posting(url: str, _client=None) -> dict:
                 f"URL is not from an allowed site. Allowed sites: {names}.",
             )
 
+    # Throttle + usage log for live mode
+    import os as _os
+    _mode = _os.environ.get("WEB_MODE", "fake").lower().strip()
+    if _mode == "live" and _client is None:
+        from agent.tools.throttle import throttle
+        from urllib.parse import urlparse
+        throttle(urlparse(url).netloc)
+
     client = _client if _client is not None else _get_client()
     result = client.fetch(url)
+
+    if _mode == "live" and _client is None:
+        from agent.tools.usage_log import log_usage
+        status = "success" if "error" not in result else result["error"]
+        from urllib.parse import urlparse
+        log_usage("read_job_posting", urlparse(url).netloc, status)
 
     if "error" in result:
         return result
 
-    # _posting is set by FakePostingClient; W4 will add parse_posting for real markdown.
     posting = result.get("_posting")
     if posting is None:
-        return make_error(NOT_FOUND, f"Cannot parse posting from URL {url!r}")
+        # Real clients (Firecrawl) return markdown; parse it into a posting dict.
+        markdown = result.get("markdown", "")
+        if not markdown:
+            return make_error(NOT_FOUND, f"Cannot parse posting from URL {url!r}")
+        posting = parse_posting(markdown, url)
 
     if not posting.get("text", "").strip():
         return make_error(EMPTY_POSTING, f"Job posting {posting.get('job_id', url)!r} has no descriptive text")
@@ -170,12 +289,18 @@ def match_skills(cv_text: str, job: dict) -> dict:
 
 
 def _skill_present(req_lower: str, cv_lower: str) -> bool:
-    if req_lower in cv_lower:
+    if _word_match(req_lower, cv_lower):
         return True
     for alias in _SKILL_ALIASES.get(req_lower, []):
-        if alias.lower() in cv_lower:
+        if _word_match(alias.lower(), cv_lower):
             return True
     return False
+
+
+def _word_match(term: str, text: str) -> bool:
+    """Match *term* in *text* as a whole phrase (no alphanumeric char on either side)."""
+    pattern = r"(?<![a-zA-Z0-9])" + re.escape(term) + r"(?![a-zA-Z0-9])"
+    return bool(re.search(pattern, text))
 
 
 # ---------------------------------------------------------------------------

@@ -88,3 +88,52 @@ The export reads **every** `*.json` file from `--postings-dir`, so injection pos
 | `jobs/job_001.html` | `https://user.github.io/cv-agent-sandbox/jobs/job_001.html` |
 
 The `sandbox/site/` directory is listed in `.gitignore` and is not committed.
+
+---
+
+## Web mode (B-WEB phases W3–W7)
+
+Set the `WEB_MODE` environment variable to control which clients are used:
+
+| `WEB_MODE` | Search client | Posting client | Submit |
+|---|---|---|---|
+| `fake` (default) | `FakeSearchClient` (sandbox postings) | `FakePostingClient` (sandbox postings) | Portal direct |
+| `replay` | `FakeSearchClient` | `FakePostingClient` reads `sandbox/snapshots/` for external URLs | Portal direct |
+| `live` | `BrowserSearchClient` (browser-use + OpenAI) | `FirecrawlPostingClient` (Firecrawl) | `BrowserSubmitClient` (browser-use) |
+
+### Environment variables for `WEB_MODE=live`
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Required by `BrowserSearchClient` and `BrowserSubmitClient` |
+| `FIRECRAWL_API_KEY` | Required by `FirecrawlPostingClient` and the `snapshot` command |
+| `SEARCH_LLM_MODEL` | Model for search (default: `gpt-4o-mini`) |
+| `SUBMIT_LLM_MODEL` | Model for submit (default: `gpt-4o-mini`) |
+| `OWN_SITE_BASE_URL` | Base URL for the Flask apply site (default: `http://127.0.0.1:5000`) |
+
+### New sandbox commands
+
+```
+python -m sandbox setup-web               – install Playwright Chromium (needed for live browser automation)
+python -m sandbox snapshot <url>          – fetch URL with Firecrawl and save to sandbox/snapshots/<job_id>.json
+python -m sandbox snapshot <url> --snapshots-dir PATH  – save to a custom directory
+```
+
+### Replay mode workflow
+
+1. Record real job pages once (needs `FIRECRAWL_API_KEY`):
+   ```
+   python -m sandbox snapshot https://www.keejob.com/offres-emploi/12345
+   ```
+
+2. Run the agent with `WEB_MODE=replay` (no API keys needed):
+   ```
+   WEB_MODE=replay python -m agent --job-url https://www.keejob.com/offres-emploi/12345
+   ```
+
+Snapshots are stored as `sandbox/snapshots/<site>-<8hexhash>.json` keyed by a SHA-256 hash of the URL.
+
+### Throttle and usage log
+
+- `SITE_THROTTLE_SECONDS` (default: 3.0) enforces a minimum gap between consecutive requests to the same host in live mode.
+- Each live tool call appends a JSON entry to `sandbox/usage_log.jsonl` with `timestamp`, `tool`, `host`, and `status`.
