@@ -208,13 +208,14 @@ def test_find_jobs_blocked_does_not_affect_other_tools(monkeypatch, tmp_path):
     _clear_cache()
     monkeypatch.setenv("FAULT_MODE", "blocked")
     # read_job_posting (context="read") should NOT be affected by blocked
+    from agent.sites import own_job_url
     from agent.tools.reads import read_job_posting
-    from sandbox.portal import Portal
+    from agent.tools.clients import FakePostingClient
     from sandbox.seed import seed
 
     seed(postings_dir=tmp_path / "postings")
-    portal = Portal(sandbox_dir=str(tmp_path))
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = FakePostingClient(sandbox_dir=str(tmp_path))
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert "error" not in result
 
 
@@ -228,15 +229,16 @@ def test_read_job_posting_non_allowlisted_https_returns_site_not_allowed():
     assert result["error"] == SITE_NOT_ALLOWED
 
 
-def test_read_job_posting_mock_url_still_works(tmp_path):
+def test_read_job_posting_own_site_url_works(tmp_path):
     _clear_cache()
+    from agent.sites import own_job_url
     from agent.tools.reads import read_job_posting
-    from sandbox.portal import Portal
+    from agent.tools.clients import FakePostingClient
     from sandbox.seed import seed
 
     seed(postings_dir=tmp_path / "postings")
-    portal = Portal(sandbox_dir=str(tmp_path))
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = FakePostingClient(sandbox_dir=str(tmp_path))
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert "error" not in result
     assert result["job_id"] == "job_001"
 
@@ -354,7 +356,7 @@ def test_search_then_tailor_chain(tmp_path, monkeypatch):
     from agent.fake_model import FakeModel
     from agent.loop import AgentLoop
     from agent.checkpoint import HumanApprovalCheckpoint
-    from sandbox.portal import Portal
+    from agent.tools.clients import FakePostingClient
     from sandbox.seed import seed
     from agent.tools import reads, writes
 
@@ -362,10 +364,12 @@ def test_search_then_tailor_chain(tmp_path, monkeypatch):
 
     # Set up sandbox in tmp_path
     seed(postings_dir=tmp_path / "postings")
+    from sandbox.portal import Portal
     portal = Portal(sandbox_dir=str(tmp_path))
+    client = FakePostingClient(sandbox_dir=str(tmp_path))
 
-    # Monkeypatch the module-level portals used by reads/writes
-    monkeypatch.setattr(reads, "_portal", portal)
+    # Monkeypatch the module-level client/portal used by reads/writes
+    monkeypatch.setattr(reads, "_client_instance", client)
     monkeypatch.setattr(writes, "_portal", portal)
 
     # Put the master CV in place

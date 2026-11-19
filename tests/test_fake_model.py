@@ -9,7 +9,7 @@ def test_fake_model_returns_scripted_responses_in_order():
         {
             "type": "tool_call",
             "tool_name": "read_job_posting",
-            "arguments": {"url": "mock://jobs/job_001"},
+            "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"},
             "tokens_in": 0,
             "tokens_out": 0,
         },

@@ -50,8 +50,11 @@ def reset() -> None:
     print("Sandbox output and state cleared.")
 
 
-def run(job_url: str = "mock://jobs/job_001") -> None:
+def run(job_url: str | None = None) -> None:
     """Run the agent with the fake model and auto-approval."""
+    if job_url is None:
+        from agent.sites import own_job_url
+        job_url = own_job_url("job_001")
     cmd = [
         sys.executable, "-m", "agent",
         "--model", "fake",

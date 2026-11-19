@@ -13,14 +13,14 @@ from agent.fake_model import FakeModel
 from agent.logger import AgentLogger
 from agent.loop import AgentLoop
 from agent.model import ModelUnavailableError
-from agent.config import ALLOWED_URL_PREFIX
+from agent.sites import own_job_url
 
 
 FAKE_WALKTHROUGH_RESPONSES = [
     {
         "type": "tool_call",
         "tool_name": "read_job_posting",
-        "arguments": {"url": "mock://jobs/job_001"},
+        "arguments": {"url": own_job_url("job_001")},
         "usage": {"input_tokens": 10, "output_tokens": 5},
     },
     {
@@ -89,7 +89,7 @@ SEARCH_THEN_TAILOR_RESPONSES = [
     {
         "type": "tool_call",
         "tool_name": "read_job_posting",
-        "arguments": {"url": "mock://jobs/job_001"},
+        "arguments": {"url": own_job_url("job_001")},
         "usage": {"input_tokens": 10, "output_tokens": 5},
     },
     {
@@ -181,7 +181,7 @@ def _build_parser():
     parser.add_argument(
         "--job-url",
         type=str,
-        default=f"{ALLOWED_URL_PREFIX}jobs/job_001",
+        default=own_job_url("job_001"),
         metavar="URL",
         help="URL of the job posting to process.",
     )

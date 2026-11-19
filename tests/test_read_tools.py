@@ -3,7 +3,8 @@
 Tests for agent/tools/reads.py — read_job_posting, read_master_cv,
 match_skills, check_format.
 
-read_job_posting and read_master_cv accept injection parameters for isolation.
+read_job_posting accepts injectable _client for test isolation.
+read_master_cv accepts injectable _cv_path.
 match_skills and check_format operate on plain text, no I/O needed.
 """
 
@@ -13,13 +14,14 @@ from pathlib import Path
 
 import pytest
 
+from agent.sites import own_job_url
+from agent.tools.clients import FakePostingClient
 from agent.tools.reads import (
     check_format,
     match_skills,
     read_job_posting,
     read_master_cv,
 )
-from sandbox.portal import Portal
 from sandbox.seed import POSTINGS, seed
 
 
@@ -27,9 +29,9 @@ from sandbox.seed import POSTINGS, seed
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _seeded_portal(tmp_path: Path) -> Portal:
+def _seeded_client(tmp_path: Path) -> FakePostingClient:
     seed(postings_dir=tmp_path / "postings")
-    return Portal(sandbox_dir=str(tmp_path))
+    return FakePostingClient(sandbox_dir=str(tmp_path))
 
 
 def _write_cv(tmp_path: Path, text: str) -> Path:
@@ -43,34 +45,34 @@ def _write_cv(tmp_path: Path, text: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def test_read_job_posting_returns_correct_job_id(tmp_path):
-    portal = _seeded_portal(tmp_path)
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = _seeded_client(tmp_path)
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert result["job_id"] == "job_001"
 
 
 def test_read_job_posting_returns_correct_title(tmp_path):
-    portal = _seeded_portal(tmp_path)
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = _seeded_client(tmp_path)
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert result["title"] == "Junior AI Engineer"
 
 
 def test_read_job_posting_has_requirements_list(tmp_path):
-    portal = _seeded_portal(tmp_path)
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = _seeded_client(tmp_path)
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert isinstance(result["requirements"], list)
     assert len(result["requirements"]) > 0
 
 
 def test_read_job_posting_has_non_empty_text(tmp_path):
-    portal = _seeded_portal(tmp_path)
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = _seeded_client(tmp_path)
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert len(result["text"]) > 10
 
 
 def test_read_all_25_job_postings_accessible(tmp_path):
-    portal = _seeded_portal(tmp_path)
+    client = _seeded_client(tmp_path)
     for i in range(1, 26):
-        result = read_job_posting(f"mock://jobs/job_{i:03d}", _portal=portal)
+        result = read_job_posting(own_job_url(f"job_{i:03d}"), _client=client)
         assert result.get("job_id") == f"job_{i:03d}", f"job_{i:03d} returned error"
 
 
@@ -79,12 +81,13 @@ def test_read_all_25_job_postings_accessible(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_read_job_posting_not_found(tmp_path):
-    portal = _seeded_portal(tmp_path)
-    result = read_job_posting("mock://jobs/job_999", _portal=portal)
+    client = _seeded_client(tmp_path)
+    result = read_job_posting(own_job_url("job_999"), _client=client)
     assert result["error"] == "NOT_FOUND"
 
 
 def test_read_job_posting_empty_text_returns_empty_posting(tmp_path):
+    from sandbox.portal import Portal
     portal = Portal(sandbox_dir=str(tmp_path))
     (tmp_path / "postings").mkdir(parents=True, exist_ok=True)
     posting = {
@@ -96,7 +99,8 @@ def test_read_job_posting_empty_text_returns_empty_posting(tmp_path):
     }
     with open(tmp_path / "postings" / "job_001.json", "w") as fh:
         json.dump(posting, fh)
-    result = read_job_posting("mock://jobs/job_001", _portal=portal)
+    client = FakePostingClient(sandbox_dir=str(tmp_path))
+    result = read_job_posting(own_job_url("job_001"), _client=client)
     assert result["error"] == "EMPTY_POSTING"
 
 

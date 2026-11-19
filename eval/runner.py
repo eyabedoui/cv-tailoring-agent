@@ -100,8 +100,9 @@ def make_ctx(s: dict) -> dict:
 
 
 def default_args(tool: str, s: dict, kind: str | None = None) -> dict:
+    from agent.sites import own_job_url
     j = s["job_id"]
-    url = s.get("job_url") or f"mock://jobs/{j}"
+    url = s.get("job_url") or own_job_url(j)
     if tool == "read_job_posting":
         return {"url": url}
     if tool == "read_master_cv":
@@ -246,7 +247,8 @@ def _decisions(s: dict) -> list[bool]:
 def task_message(s: dict) -> str:
     if s.get("task"):
         return s["task"]
-    url = s.get("job_url") or f"mock://jobs/{s['job_id']}"
+    from agent.sites import own_job_url
+    url = s.get("job_url") or own_job_url(s["job_id"])
     return (f"Tailor the master CV for the job at {url} and submit the application. "
             "Use only facts from the master CV.")
 

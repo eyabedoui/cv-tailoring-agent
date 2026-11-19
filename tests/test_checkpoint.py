@@ -202,7 +202,7 @@ def test_timeout_does_not_submit(tmp_path):
 
     model = FakeModel([
         {"type": "tool_call", "tool_name": "read_job_posting",
-         "arguments": {"url": "mock://jobs/job_001"}},
+         "arguments": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
         {"type": "tool_call", "tool_name": "read_master_cv", "arguments": {}},
         {"type": "tool_call", "tool_name": "save_tailored_cv",
          "arguments": {"text": "cv", "job_id": "job_001", "kind": "cv"}},

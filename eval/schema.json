@@ -8,7 +8,7 @@
     "category": {"type": "string"},
     "description": {"type": "string"},
     "job_id": {"type": "string"},
-    "job_url": {"type": "string", "description": "Defaults to mock://jobs/<job_id>"},
+    "job_url": {"type": "string", "description": "Defaults to http://127.0.0.1:5000/jobs/<job_id>"},
     "task": {"type": "string", "description": "Overrides the user message sent to the agent"},
     "posting": {"type": "object", "description": "Inline posting written to sandbox/postings/<job_id>.json for this run only (used by injection cases)"},
     "preapplied": {"type": "array", "items": {"type": "string"}, "description": "Job ids already applied to before the run (duplicate tests)"},

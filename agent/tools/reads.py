@@ -14,22 +14,21 @@ from typing import Any
 
 from agent.config import SANDBOX_DIR
 from agent.errors import make_error, NOT_FOUND, EMPTY_POSTING, SITE_NOT_ALLOWED
-from sandbox.faults import check_fault
-from sandbox.portal import Portal
 
 # ---------------------------------------------------------------------------
 # Module-level defaults — replace via monkeypatch in tests
 # ---------------------------------------------------------------------------
 
-_portal: Portal | None = None
+_client_instance = None
 _cv_path: Path | None = None
 
 
-def _get_portal() -> Portal:
-    global _portal
-    if _portal is None:
-        _portal = Portal()
-    return _portal
+def _get_client():
+    global _client_instance
+    if _client_instance is None:
+        from agent.tools.clients import FakePostingClient
+        _client_instance = FakePostingClient()
+    return _client_instance
 
 
 def _get_cv_path() -> Path:
@@ -65,34 +64,32 @@ _SKILL_ALIASES: dict[str, list[str]] = {
 # read_job_posting
 # ---------------------------------------------------------------------------
 
-def read_job_posting(url: str, _portal: Portal | None = None) -> dict:
-    """Fetch a job posting by mock URL and return its structured data."""
-    # Defense-in-depth: if an http/https URL somehow reaches here, re-check
-    # the allowlist (the registry pre-check is the primary gate).
+def read_job_posting(url: str, _client=None) -> dict:
+    """Fetch a job posting by URL and return its structured data."""
+    # Defense-in-depth: re-check allowlist for http/https URLs that reach here
+    # (the registry pre-check is the primary gate).
     if url.lower().startswith(("http://", "https://")):
-        from agent.sites import is_url_allowed, site_names
-        if not is_url_allowed(url):
+        from agent.sites import is_url_allowed, is_own_url, site_names
+        if not is_url_allowed(url) and not is_own_url(url):
             names = ", ".join(sorted(site_names()))
             return make_error(
                 SITE_NOT_ALLOWED,
                 f"URL is not from an allowed site. Allowed sites: {names}.",
             )
 
-    portal = _portal if _portal is not None else _get_portal()
+    client = _client if _client is not None else _get_client()
+    result = client.fetch(url)
 
-    fault = check_fault("read", portal.state_dir)
-    if fault is not None:
-        return fault
+    if "error" in result:
+        return result
 
-    # URL already validated by pydantic (mock://jobs/job_NNN).
-    job_id = url[len("mock://jobs/"):]
-
-    posting = portal.get_posting(job_id)
+    # _posting is set by FakePostingClient; W4 will add parse_posting for real markdown.
+    posting = result.get("_posting")
     if posting is None:
-        return make_error(NOT_FOUND, f"Job posting {job_id!r} was not found in the sandbox")
+        return make_error(NOT_FOUND, f"Cannot parse posting from URL {url!r}")
 
     if not posting.get("text", "").strip():
-        return make_error(EMPTY_POSTING, f"Job posting {job_id!r} has no descriptive text")
+        return make_error(EMPTY_POSTING, f"Job posting {posting.get('job_id', url)!r} has no descriptive text")
 
     return {
         "job_id": posting["job_id"],

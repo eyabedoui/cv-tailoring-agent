@@ -10,6 +10,7 @@ Security rules enforced by is_url_allowed():
   - Exact host match OR subdomain of an enabled host
   - Reject lookalike hosts (e.g. weworkremotely.com.evil.io)
   - Normalise: lowercase, strip trailing dot
+  - Sites with kind="own" are excluded (checked via is_own_url() instead)
 """
 
 from __future__ import annotations
@@ -43,12 +44,12 @@ def load_allowlist() -> dict:
 
 
 def site_names() -> list[str]:
-    """Return sorted list of enabled site names."""
+    """Return sorted list of enabled, searchable site names (excludes own site)."""
     data = load_allowlist()
     return sorted(
         name
         for name, cfg in data["sites"].items()
-        if cfg.get("enabled", False)
+        if cfg.get("enabled", False) and cfg.get("kind") != "own"
     )
 
 
@@ -58,16 +59,40 @@ def host_for(site: str) -> str:
     return data["sites"][site]["host"].lower()
 
 
+def own_base_url() -> str:
+    """Return the base URL for our own apply site (strips trailing slash)."""
+    return os.environ.get("OWN_SITE_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+
+
+def own_job_url(job_id: str) -> str:
+    """Return the full URL for a job posting on our own site."""
+    return f"{own_base_url()}/jobs/{job_id}"
+
+
+def own_apply_url(job_id: str) -> str:
+    """Return the full URL for the apply page on our own site."""
+    return f"{own_base_url()}/apply/{job_id}"
+
+
+def is_own_url(url: str) -> bool:
+    """Return True if the URL belongs to our own apply site."""
+    if not url:
+        return False
+    base = own_base_url()
+    return url.startswith(base + "/")
+
+
 def is_url_allowed(url: str) -> bool:
     """
     Return True only if the URL is a valid, allowlisted https URL.
 
     Checks performed:
       1. Scheme must be https (lowercase after normalisation).
-      2. No userinfo component (reject credential-embedding attacks).
+      2. No userinfo (e.g. https://evil@trusted.com is rejected).
       3. Host (after stripping trailing dot, lowercase) must exactly equal
          an enabled site's host OR be a proper subdomain of it.
       4. Reject lookalike suffixes (e.g. .evil.io appended to a real host).
+      5. Sites with kind="own" are skipped (use is_own_url() for those).
     """
     if not url:
         return False
@@ -95,6 +120,8 @@ def is_url_allowed(url: str) -> bool:
     for cfg in data["sites"].values():
         if not cfg.get("enabled", False):
             continue
+        if cfg.get("kind") == "own":
+            continue
         allowed_host = cfg["host"].lower().rstrip(".")
         if host == allowed_host:
             return True
@@ -118,6 +145,8 @@ def url_belongs_to_site(url: str, site: str) -> bool:
     data = load_allowlist()
     site_cfg = data["sites"].get(site)
     if site_cfg is None or not site_cfg.get("enabled", False):
+        return False
+    if site_cfg.get("kind") == "own":
         return False
 
     try:

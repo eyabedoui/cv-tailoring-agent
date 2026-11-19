@@ -15,7 +15,7 @@
     {
       "tool": "read_job_posting",
       "args": {
-        "url": "mock://jobs/job_950"
+        "url": "http://127.0.0.1:5000/jobs/job_950"
       },
       "expect_error": "EMPTY_POSTING"
     }
