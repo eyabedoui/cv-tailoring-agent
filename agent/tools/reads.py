@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agent.config import SANDBOX_DIR
 from agent.errors import make_error, NOT_FOUND, EMPTY_POSTING, SITE_NOT_ALLOWED
@@ -60,29 +60,86 @@ _SKILL_ALIASES: dict[str, list[str]] = {
     "version control": ["git", "svn", "contrôle de version"],
     "data analysis": ["data analytics", "pandas", "analyse de données", "analyse des données"],
     "machine learning": ["scikit-learn", "sklearn", "ml", "apprentissage automatique"],
+    "apprentissage automatique": ["machine learning", "ml", "scikit-learn", "sklearn"],
     "natural language processing": ["nlp", "traitement du langage naturel"],
+    "traitement du langage naturel": ["nlp", "natural language processing"],
     "rest api": ["rest apis", "restful", "api rest"],
     "rest apis": ["rest api", "restful", "api rest"],
     "continuous integration": ["ci/cd", "github actions", "jenkins"],
     "node.js": ["nodejs", "node js"],
     "html/css": ["html", "css"],
     "problem solving": ["problem-solving", "résolution de problèmes"],
+    "résolution de problèmes": ["problem solving", "problem-solving"],
     "communication": [
         "written and verbal communication",
         "verbal communication",
         "communication écrite",
         "communication verbale",
     ],
+    "communication écrite": ["communication", "written and verbal communication"],
+    "communication verbale": ["communication", "verbal communication"],
     "teamwork": ["travail en équipe", "esprit d'équipe", "team work", "work in a team"],
+    "travail en équipe": ["teamwork", "team work"],
+    "esprit d'équipe": ["teamwork", "teamwork"],
     "api": ["rest api", "graphql", "web api"],
+    # Bidirectional EN ↔ FR language / domain pairs
+    "english": ["anglais", "anglais courant", "anglais professionnel"],
+    "anglais": ["english"],
+    "anglais courant": ["english"],
+    "anglais professionnel": ["english"],
+    "computer science": ["informatique", "sciences informatiques"],
+    "informatique": ["computer science"],
+    "sciences informatiques": ["computer science"],
+    "database": ["base de données", "bases de données"],
+    "base de données": ["database"],
+    "bases de données": ["database"],
+    "analyse de données": ["data analysis", "data analytics"],
+    "analyse des données": ["data analysis", "data analytics"],
 }
+
+
+# ---------------------------------------------------------------------------
+# Short-term extraction helpers
+# ---------------------------------------------------------------------------
+
+# Common filler prefixes stripped before treating bullet text as a skill term
+_FILLER_RE = re.compile(
+    r"^(?:"
+    r"(?:strong\s+)?"
+    r"(?:experience|knowledge|familiarity|understanding|proficiency|expertise|skills?)"
+    r"(?:\s+(?:in|with|of|using))?"
+    r"|ability\s+to\s+"
+    r"|working\s+knowledge\s+of\s+"
+    r"|\d+\+?\s+years?\s+(?:of\s+)?(?:experience\s+(?:with\s+|in\s+)?)?"
+    r")\s*",
+    re.IGNORECASE,
+)
+_SPLIT_RE = re.compile(r"\s+(?:and|or|,|\/)\s+", re.IGNORECASE)
+
+
+def _extract_short_terms(raw: str) -> list[str]:
+    """
+    Convert a raw bullet text into one or more short skill terms.
+
+    E.g. "Experience with Python and machine learning" → ["Python", "machine learning"]
+    """
+    text = _FILLER_RE.sub("", raw).strip()
+    if not text:
+        return []
+    parts = _SPLIT_RE.split(text)
+    result = []
+    for part in parts:
+        part = part.strip().rstrip(".,;")
+        if 1 < len(part) <= 60:
+            result.append(part)
+    return result or [raw.strip()]
 
 
 # ---------------------------------------------------------------------------
 # parse_posting — convert scraped markdown into the standard posting dict
 # ---------------------------------------------------------------------------
 
-def parse_posting(markdown: str, url: str) -> dict:
+def parse_posting(markdown: str, url: str, _extractor: Callable[[str], list[str]] | None = None) -> dict:
     """
     Extract job posting fields from scraped markdown.
 
@@ -121,7 +178,9 @@ def parse_posting(markdown: str, url: str) -> dict:
                 break
             m = re.match(r"^[-*•]\s+(.+)", line)
             if m:
-                requirements.append(m.group(1).strip())
+                raw = m.group(1).strip()
+                terms = _extract_short_terms(raw)
+                requirements.extend(terms)
 
     # Text: ## Description (or ## About the Role / ## Responsibilities)
     text_parts: list[str] = []
@@ -139,6 +198,17 @@ def parse_posting(markdown: str, url: str) -> dict:
     # Fallback: use whole markdown as text if no section found
     if not text:
         text = markdown.strip()
+
+    # If no structured requirements were parsed, try the injectable extractor.
+    # The extractor receives the full page text (untrusted) and returns a list of
+    # short skill terms.  Its output is validated: only non-empty strings kept.
+    if not requirements and _extractor is not None:
+        try:
+            extracted = _extractor(text or markdown)
+            if isinstance(extracted, list):
+                requirements = [str(t) for t in extracted if str(t).strip()]
+        except Exception:
+            pass
 
     # Build job_id
     if is_own_url(url):

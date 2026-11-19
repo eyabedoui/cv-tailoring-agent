@@ -3,8 +3,10 @@
 25 fictional postings (job_001 – job_025).  All companies are invented;
 all contacts use `example.invalid` domains.  No real data, no network access.
 
-Expected match scores are computed by the stub `match_skills` implementation
-(simple case-insensitive substring matching against `master_cv.md`).
+Expected match scores are computed by running `match_skills` against `master_cv.md`
+using the current word-boundary implementation (see `agent/tools/reads.py`).
+"Go" does **not** match "algorithms" (word-boundary prevents substring collisions such as
+`al`**`go`**`rithms`), so job_003 and job_020 score lower than naive substring would predict.
 
 | job_id  | Title                             | Company                           | Requirements                                            | Expected score |
 |---------|-----------------------------------|-----------------------------------|---------------------------------------------------------|----------------|
@@ -114,10 +116,27 @@ Set the `WEB_MODE` environment variable to control which clients are used:
 ### New sandbox commands
 
 ```
-python -m sandbox setup-web               – install Playwright Chromium (needed for live browser automation)
-python -m sandbox snapshot <url>          – fetch URL with Firecrawl and save to sandbox/snapshots/<job_id>.json
+python -m sandbox setup                   – create dirs AND install Playwright Chromium (idempotent; does both)
+python -m sandbox setup-web               – alias for setup (Chromium install step)
+python -m sandbox snapshot <url>          – fetch URL with Firecrawl; save first 3 000 chars with PII scrubbed
+python -m sandbox snapshot <url> --full   – same but store the full markdown (no truncation)
 python -m sandbox snapshot <url> --snapshots-dir PATH  – save to a custom directory
+python -m sandbox smoke-web               – MANUAL integration test (requires live API keys; never run from pytest)
 ```
+
+#### snapshot — PII scrubbing and excerpt
+
+By default `snapshot` saves only the first 3 000 characters of the scraped markdown and replaces
+email addresses (`[EMAIL]`) and phone numbers (`[PHONE]`) with placeholder tokens before writing.
+Pass `--full` to store the complete untruncated text.
+
+#### smoke-web — manual integration gate
+
+`python -m sandbox smoke-web` requires `OPENAI_API_KEY` and `FIRECRAWL_API_KEY` to be set;
+it will abort immediately with an explanatory message if either is missing.
+It checks the Flask `/health` endpoint, runs `find_jobs` + `read_job_posting` per allowed
+site, submits one application, and prints a pass/fail table with usage-log totals.
+**Never invoke this from pytest** — it hits the real internet and requires live services.
 
 ### Replay mode workflow
 

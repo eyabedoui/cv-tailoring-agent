@@ -75,6 +75,54 @@
 - Restored 5 tests accidentally dropped in W1 migration (`test_fault_modes.py`): `test_unknown_fault_on_submit`, `test_no_fault_mode_read_succeeds`, `test_no_fault_mode_submit_succeeds`, `test_check_fault_empty_string_returns_none`, `test_check_fault_reject_duplicate_only_fires_for_submit`.
 - Gate: **494 passed** (↑52 from W1 442, test floor now 494), eval 15/15.
 
+---
+
+## Final Report (audit 2026-11-20)
+
+### Per-phase status (W3–W9)
+
+| Phase | Status | Key evidence (test names) |
+|---|---|---|
+| W3 Browser search | Done | `test_browser_search_client.py` — `test_search_returns_list`, `test_search_query_sent_to_agent`; `test_w8_smoke.py` — `test_get_search_client_live_is_browser` |
+| W4 Firecrawl read | Done | `test_firecrawl_posting_client.py` — `test_firecrawl_fetch_returns_markdown`, `test_firecrawl_fault_fires_before_fetch`; `test_parse_posting.py` — parse & match round-trip |
+| W4b FR aliases | Done | `test_match_skills_upgrade.py` — 25 parametrized posting scores, bidirectional EN↔FR alias tests |
+| W5 Browser submit | Done | `test_browser_submit_client.py` — `test_browser_submit_returns_submitted`, `test_submit_application_uses_submit_client_when_injected` |
+| W6 Throttle + log | Done | `test_throttle.py` — 10 tests; `test_usage_log.py` — 8 tests |
+| W7 Snapshots | Done | `test_snapshots.py` — `test_snapshot_saved`, `test_replay_mode_uses_snapshot` |
+| W8 Setup + smoke | Done | `test_w8_smoke.py` — 20 tests covering imports, factory wiring, replay, throttle, usage log |
+| W9 Offline guard | Done | `conftest.py` `_offline_guard` autouse; `test_fault_modes_web.py` — `test_web_mode_is_fake_in_pytest_environment` |
+
+### Library versions used
+
+| Library | Version (lower bound in requirements.txt) |
+|---|---|
+| browser-use | 1.0.6 (`>=1.0`) |
+| firecrawl-py | 4.57.0 (`>=4.0`) |
+| Flask | 3.0.3 (`>=3.0`) |
+| pydantic | 2.14.3 (`>=2.0`) |
+
+> `V1FirecrawlApp` (not `FirecrawlApp`) is the correct class in firecrawl-py ≥ 4.x.
+> `browser_use.Agent` with `output_model_schema=` and `.structured_output` property is the 1.0.x API.
+
+### What is fake-only (never hits the network in the test suite)
+
+- `BrowserSearchClient` — monkeypatched via `browser_use.Agent` in tests
+- `FirecrawlPostingClient` — monkeypatched via `firecrawl.V1FirecrawlApp` in tests
+- `BrowserSubmitClient` — monkeypatched via `browser_use.Agent` in tests
+- All tests run with `WEB_MODE=fake` enforced by `_offline_guard` autouse fixture in `conftest.py`
+- `FAULT_MODE` is cleared and throttle state is reset after every test
+
+### Manual steps the user must perform before a live run
+
+1. `pip install -r requirements.txt` — install all dependencies
+2. `python -m sandbox setup` — creates dirs + installs Playwright Chromium (idempotent)
+3. `python -m sandbox seed` — populate sandbox/postings/ with 25 job postings
+4. Set `OPENAI_API_KEY` and `FIRECRAWL_API_KEY` in `.env` (copy from `.env.example`)
+5. `python -m sandbox serve` — start the Flask apply site (required for `WEB_MODE=live` submit)
+6. Optionally run `python -m sandbox smoke-web` to verify the full live stack
+
+---
+
 ### W1 — done (2026-11-19)
 
 - Added "own" site entry (kind=own, no host) to `allowed_sites.json`; `site_names()` and `is_url_allowed()` skip it.

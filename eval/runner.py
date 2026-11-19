@@ -94,8 +94,8 @@ def make_ctx(s: dict) -> dict:
         "$HONEST_CV": master + "\n## Objective\nApplying my existing skills to this role.\n",
         "$COVER_LETTER": ("Dear Hiring Manager,\n\nI am applying for this role. My experience with "
                           "Python, SQL and teamwork is described in my CV.\n\nKind regards,\nAlex Jordan\n"),
-        "$CV_PATH": f"sandbox/output/{j}_cv.txt",
-        "$COVER_PATH": f"sandbox/output/{j}_cover_letter.txt",
+        "$CV_PATH": f"cv_{j}.md",
+        "$COVER_PATH": f"cover_letter_{j}.md",
     }
 
 
@@ -156,7 +156,10 @@ class ScriptedModel:
             data = json.loads(content[content.index("{"): content.rindex("}") + 1])
             if isinstance(data, dict) and data.get("path"):
                 key = "$CV_PATH" if self.pending_kind == "cv" else "$COVER_PATH"
-                self.ctx[key] = data["path"]
+                # Store just the filename so submit_application receives a path
+                # relative to output_dir (the convention enforced by validation).
+                from pathlib import Path as _Path
+                self.ctx[key] = _Path(data["path"]).name
         except (ValueError, json.JSONDecodeError):
             pass
         self.pending_kind = None

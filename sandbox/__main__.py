@@ -1,21 +1,21 @@
 """
 Entry point for  python -m sandbox <command>.
 
-Commands: setup | seed | reset | run | serve | export-static | export
+Commands: setup | setup-web | seed | reset | run | serve | export-static | export | snapshot | smoke-web
 """
 
 import argparse
 import sys
 
-from sandbox.manage import export, export_static, reset, run, seed, serve, setup, setup_web, snapshot
+from sandbox.manage import export, export_static, reset, run, seed, serve, setup, setup_web, snapshot, smoke_web
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="sandbox", description="Manage the CV-agent sandbox.")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("setup", help="Create sandbox directory structure.")
-    sub.add_parser("setup-web", help="Install Playwright Chromium (required for WEB_MODE=live).")
+    sub.add_parser("setup", help="Create sandbox dirs and install Playwright Chromium (idempotent).")
+    sub.add_parser("setup-web", help="Alias for setup — installs Playwright Chromium.")
     sub.add_parser("seed", help="Populate sandbox/postings/ with 25 job postings.")
     sub.add_parser("reset", help="Clear sandbox output and state (keeps postings).")
 
@@ -55,6 +55,15 @@ def main() -> None:
         "--snapshots-dir", default=None, metavar="PATH",
         help="Snapshots directory (default: sandbox/snapshots/).",
     )
+    snap_p.add_argument(
+        "--full", action="store_true", default=False,
+        help="Store full markdown (default: first 3000 chars only, PII scrubbed).",
+    )
+
+    sub.add_parser(
+        "smoke-web",
+        help="MANUAL integration test — requires OPENAI_API_KEY and FIRECRAWL_API_KEY. Never run from pytest.",
+    )
 
     args = parser.parse_args()
 
@@ -76,7 +85,9 @@ def main() -> None:
     elif args.command == "export":
         export(dest=args.dest)
     elif args.command == "snapshot":
-        snapshot(url=args.url, snapshots_dir=args.snapshots_dir)
+        snapshot(url=args.url, snapshots_dir=args.snapshots_dir, full=args.full)
+    elif args.command == "smoke-web":
+        smoke_web()
     else:
         parser.print_help()
         sys.exit(1)

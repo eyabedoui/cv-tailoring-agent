@@ -57,7 +57,7 @@ def check_fault(context: str, state_dir: Path) -> dict | None:
             "Portal rejected duplicate application (FAULT_MODE=reject_duplicate)",
         )
 
-    if mode == "blocked" and context == "search":
+    if mode == "blocked" and context in ("search", "read"):
         return make_error(
             SITE_BLOCKED,
             "Site blocked automation (FAULT_MODE=blocked)",

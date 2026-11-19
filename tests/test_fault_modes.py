@@ -210,7 +210,11 @@ def test_no_fault_mode_read_succeeds(tmp_path, monkeypatch):
 def test_no_fault_mode_submit_succeeds(tmp_path, monkeypatch):
     monkeypatch.delenv("FAULT_MODE", raising=False)
     portal = _portal(tmp_path)
-    result = submit_application("out/cv.md", "out/cl.md", "job_001", _portal=portal)
+    cv_name = "cv_job_001.md"
+    cl_name = "cover_letter_job_001.md"
+    (portal.output_dir / cv_name).write_text("CV", encoding="utf-8")
+    (portal.output_dir / cl_name).write_text("CL", encoding="utf-8")
+    result = submit_application(cv_name, cl_name, "job_001", _portal=portal)
     assert result["status"] == "submitted"
 
 
