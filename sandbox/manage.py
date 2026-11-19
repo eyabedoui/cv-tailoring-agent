@@ -1,14 +1,18 @@
 """
 Sandbox management commands.
 
-    python -m sandbox setup   – create sandbox directory structure
-    python -m sandbox seed    – populate sandbox/postings/ with 25 postings
-    python -m sandbox reset   – delete state and output files (keep postings)
-    python -m sandbox run     – run the agent against job_001 with fake model
+    python -m sandbox setup                      – create sandbox directory structure
+    python -m sandbox seed                       – populate sandbox/postings/ with 25 postings
+    python -m sandbox reset                      – delete state and output files (keep postings)
+    python -m sandbox run                        – run the agent against job_001 with fake model
+    python -m sandbox serve [--port N]           – start the Flask apply site
+    python -m sandbox export-static [--dest D]   – export postings as static HTML site
+    python -m sandbox export [--dest D]          – alias for export-static (JSON files kept for compat)
 
 Calling seed() implies setup().
 """
 
+import json
 import shutil
 import subprocess
 import sys
@@ -62,3 +66,60 @@ def run(job_url: str | None = None) -> None:
         "--job-url", job_url,
     ]
     subprocess.run(cmd, check=True)
+
+
+def serve(port: int = 5000, sandbox_dir: str | None = None) -> None:
+    """Start the Flask apply site on 127.0.0.1:<port>."""
+    from sandbox.site_app import create_app
+    app = create_app(sandbox_dir=sandbox_dir)
+    print(f"Sandbox server listening on http://127.0.0.1:{port}")
+    app.run(host="127.0.0.1", port=port, debug=False)
+
+
+def export_static(dest: str | None = None, postings_dir: str | None = None) -> None:
+    """
+    Export all postings as a static HTML site (index + one page per posting).
+
+    dest        – output root directory (default: sandbox/site/)
+    postings_dir – where to read .json postings from (default: sandbox/postings/)
+
+    Reads every *.json file in postings_dir so injection postings (job_901+) are
+    included if they have been placed there.
+
+    URL shape (compatible with GitHub Pages when OWN_SITE_BASE_URL points there):
+        index.html          – listing of all postings
+        jobs/<job_id>.html  – individual posting page (same template as live /jobs/<id>)
+
+    Uses the same Jinja2 templates as the live Flask server (sandbox/templates/).
+    Autoescape is ON; no |safe is used.
+    """
+    from jinja2 import Environment, FileSystemLoader
+
+    _templates_dir = Path(__file__).parent / "templates"
+    _postings_dir = Path(postings_dir) if postings_dir else _BASE / "postings"
+    dest_path = Path(dest) if dest else _BASE / "site"
+    jobs_out = dest_path / "jobs"
+    jobs_out.mkdir(parents=True, exist_ok=True)
+
+    env = Environment(loader=FileSystemLoader(str(_templates_dir)), autoescape=True)
+
+    postings = []
+    for path in sorted(_postings_dir.glob("*.json")):
+        with open(path, encoding="utf-8") as fh:
+            postings.append(json.load(fh))
+
+    job_tmpl = env.get_template("job.html")
+    for posting in postings:
+        html = job_tmpl.render(posting=posting)
+        (jobs_out / f"{posting['job_id']}.html").write_text(html, encoding="utf-8")
+
+    index_tmpl = env.get_template("index.html")
+    html = index_tmpl.render(postings=postings)
+    (dest_path / "index.html").write_text(html, encoding="utf-8")
+
+    print(f"Exported {len(postings)} postings to {dest_path}")
+
+
+def export(dest: str | None = None) -> None:
+    """Alias for export_static (kept for backwards compatibility)."""
+    export_static(dest=dest)

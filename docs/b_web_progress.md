@@ -3,7 +3,7 @@
 ## Checklist
 
 - [x] W1 — Allowlist consumers, job IDs, remove mock://
-- [ ] W2 — Flask apply site + static export
+- [x] W2 — Flask apply site + static export
 - [ ] W3 — Browser Use search client
 - [ ] W4 — Firecrawl read + parse_posting
 - [ ] W4b — Upgrade match_skills (word boundaries, French aliases)
@@ -14,6 +14,16 @@
 - [ ] W9 — Offline autouse fixture, dead code removal
 
 ## Phase Notes
+
+### W2 — done (2026-11-19, revised)
+
+- `GET /jobs/<id>` → HTML (Jinja2, autoescape ON, no `|safe`); `GET /jobs/<id>.json` → JSON for agent.
+- `GET /apply/<id>` → read-only HTML: CV + cover letter in `<pre>` (escaped), single `<button id="submit-application">`, no editable inputs; shows "Already applied." without button when duplicate; 404 "not saved yet" if output files missing; 400 on invalid job_id format.
+- `POST /apply/<id>` → paths derived from job_id (no client-supplied paths); checks file existence, duplicate → 409; works from empty form body.
+- `export-static [--dest sandbox/site] [--postings-dir]` → `index.html` + `jobs/<id>.html` per posting; reads ALL .json (includes injection postings); same Jinja2 template as live server; autoescape ON; `sandbox/site/` added to `.gitignore`.
+- `docs/sandbox.md`: documented Flask routes and static export URL shapes (GitHub Pages compatible).
+- Restored 5 tests accidentally dropped in W1 migration (`test_fault_modes.py`): `test_unknown_fault_on_submit`, `test_no_fault_mode_read_succeeds`, `test_no_fault_mode_submit_succeeds`, `test_check_fault_empty_string_returns_none`, `test_check_fault_reject_duplicate_only_fires_for_submit`.
+- Gate: **494 passed** (↑52 from W1 442, test floor now 494), eval 15/15.
 
 ### W1 — done (2026-11-19)
 

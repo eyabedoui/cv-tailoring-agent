@@ -46,3 +46,45 @@ Expected match scores are computed by the stub `match_skills` implementation
 ```
 python -m sandbox.seed
 ```
+
+## Flask apply site (live mode)
+
+Start with `python -m sandbox serve [--port 5000]`.
+
+| URL pattern | Method | Description |
+|---|---|---|
+| `/health` | GET | Health check — returns `{"status":"ok"}` |
+| `/jobs/<job_id>` | GET | HTML job posting page |
+| `/jobs/<job_id>.json` | GET | JSON job posting (for the agent) |
+| `/apply/<job_id>` | GET | Read-only view of saved CV + cover letter; shows submit button unless already applied or files missing |
+| `/apply/<job_id>` | POST | Record the application; paths derived from `job_id`; returns JSON |
+
+Default base URL: `http://127.0.0.1:5000` (loopback only).  
+Configured via `OWN_SITE_BASE_URL` environment variable.
+
+## Static export
+
+Export all postings as a self-contained static HTML site:
+
+```
+python -m sandbox export-static [--dest sandbox/site] [--postings-dir sandbox/postings]
+```
+
+Output layout (relative to `--dest`):
+
+```
+index.html              ← listing of all postings
+jobs/<job_id>.html      ← individual posting page (same template as live /jobs/<job_id>)
+```
+
+The export reads **every** `*.json` file from `--postings-dir`, so injection postings
+(`job_901+`) placed there are included automatically.
+
+**GitHub Pages URL shape** — if `OWN_SITE_BASE_URL = https://user.github.io/cv-agent-sandbox`:
+
+| Path | Full URL |
+|---|---|
+| `index.html` | `https://user.github.io/cv-agent-sandbox/` |
+| `jobs/job_001.html` | `https://user.github.io/cv-agent-sandbox/jobs/job_001.html` |
+
+The `sandbox/site/` directory is listed in `.gitignore` and is not committed.

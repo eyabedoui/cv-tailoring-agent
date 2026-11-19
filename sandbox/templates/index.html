@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Postings – CV Agent Sandbox</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem}
+h1{font-size:1.5rem}ul{padding-left:1.2rem}li{margin:.3rem 0}a{color:#005a9c}
+</style>
+</head>
+<body>
+<h1>Job Postings</h1>
+<ul>
+{% for posting in postings %}<li><a href="jobs/{{ posting.job_id }}.html">{{ posting.title }} – {{ posting.company }}</a></li>
+{% endfor %}
+</ul>
+</body>
+</html>

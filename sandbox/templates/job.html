@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ posting.title }} – CV Agent Sandbox{% endblock %}
+{% block content %}
+<h1>{{ posting.title }}</h1>
+<p><strong>Company:</strong> {{ posting.company }}</p>
+<h2>Requirements</h2>
+<ul>
+{% for req in posting.requirements %}<li>{{ req }}</li>
+{% endfor %}
+</ul>
+<h2>Description</h2>
+<p>{{ posting.text }}</p>
+{% endblock %}
