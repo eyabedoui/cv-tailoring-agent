@@ -126,9 +126,9 @@ def _build_parser():
 
     parser.add_argument(
         "--model",
-        choices=["anthropic", "fake"],
-        default="anthropic",
-        help="Model backend to use (default: anthropic).",
+        choices=["openai", "fake"],
+        default="openai",
+        help="Model backend to use (default: openai).",
     )
 
     return parser
@@ -155,8 +155,8 @@ def main(argv=None):
     if args.model == "fake":
         model = FakeModel(FAKE_WALKTHROUGH_RESPONSES)
     else:
-        from agent.model import AnthropicModel
-        model = AnthropicModel()
+        from agent.model import OpenAIModel
+        model = OpenAIModel()
 
     # Build the initial user message.
     if args.request:

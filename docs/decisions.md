@@ -56,7 +56,25 @@ requirements.txt
 
 ## make targets
 - `make setup` — `pip install -r requirements.txt`
-- `make run`   — `python -m agent --model fake --auto-approve`
+- `make run`   — `python -m agent --model openai --auto-approve`
+
+## Model provider: OpenAI
+
+- **Only one provider key is needed**: `OPENAI_API_KEY`. There is no Anthropic key.
+- **JSON protocol kept**: the model returns one JSON object per reply (tool_call or
+  final); no native function-calling is used. This keeps the loop provider-agnostic.
+- **`max_completion_tokens` instead of `max_tokens`**: reasoning models (o1, o3, etc.)
+  reject the `max_tokens` parameter. Using `max_completion_tokens` works for both
+  standard and reasoning models. `temperature` and `top_p` are also omitted for the
+  same reason.
+- **`response_format: json_object` with fallback**: sent on the first call to get
+  clean JSON. If the API returns a `BadRequestError` mentioning `response_format`
+  (some older or fine-tuned models reject it), the adapter retries once without it
+  and remembers that choice for the lifetime of the instance.
+- **Other tool keys (Firecrawl, Browser Use) are separate**: they go in `.env` as
+  `FIRECRAWL_API_KEY` and `BROWSER_USE_API_KEY`; the agent never reads them.
+- **Browser Use uses OpenAI**: it wraps the OpenAI Chat Completions API internally,
+  so `OPENAI_API_KEY` covers it too.
 
 ## Human checkpoint gate
 Only `submit_application` is gated behind the human approval checkpoint.

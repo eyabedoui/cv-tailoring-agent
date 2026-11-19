@@ -29,7 +29,7 @@ run-fake:
 run:
 	python3 -m sandbox reset
 	python3 -m sandbox seed
-	python3 -m agent --model anthropic --auto-approve
+	python3 -m agent --model openai --auto-approve
 
 eval-fake:
 	python3 -m eval.runner --model fake
