@@ -577,3 +577,71 @@ def test_main_fake_auto_approve(tmp_path, monkeypatch):
     assert result["stop_reason"] == "done"
     assert result["step_count"] == len(FAKE_WALKTHROUGH_RESPONSES) - 1  # final is not a step
     assert "submitted" in result["answer"].lower() or result["answer"]
+
+
+# ---------------------------------------------------------------------------
+# OpenAIModel: quota 429 raises immediately; non-quota 429 is retried
+# ---------------------------------------------------------------------------
+
+def test_quota_error_by_code_raises_model_unavailable_immediately(monkeypatch):
+    mock_client = mock.MagicMock()
+    err = _FakeRateLimitError("insufficient_quota")
+    err.code = "insufficient_quota"
+    mock_client.chat.completions.create.side_effect = err
+
+    sleep_calls = []
+    monkeypatch.setattr("agent.model._sleep", lambda s: sleep_calls.append(s))
+
+    model = OpenAIModel(client=mock_client)
+    with pytest.raises(ModelUnavailableError, match="credits"):
+        model.call_model([], [])
+
+    assert sleep_calls == []  # No retries for quota errors
+    assert mock_client.chat.completions.create.call_count == 1
+
+
+def test_quota_error_by_message_keyword_raises_immediately(monkeypatch):
+    mock_client = mock.MagicMock()
+    # "billing" in the error message should trigger the quota path
+    err = _FakeRateLimitError("You exceeded your current quota. Check your billing.")
+    err.code = None
+    mock_client.chat.completions.create.side_effect = err
+
+    sleep_calls = []
+    monkeypatch.setattr("agent.model._sleep", lambda s: sleep_calls.append(s))
+
+    model = OpenAIModel(client=mock_client)
+    with pytest.raises(ModelUnavailableError, match="credits"):
+        model.call_model([], [])
+
+    assert sleep_calls == []
+
+
+def test_quota_error_message_mentions_billing_settings(monkeypatch):
+    mock_client = mock.MagicMock()
+    err = _FakeRateLimitError("insufficient_quota")
+    err.code = "insufficient_quota"
+    mock_client.chat.completions.create.side_effect = err
+
+    model = OpenAIModel(client=mock_client)
+    with pytest.raises(ModelUnavailableError) as exc_info:
+        model.call_model([], [])
+
+    msg = str(exc_info.value).lower()
+    assert "billing" in msg or "credits" in msg
+
+
+def test_non_quota_rate_limit_still_retried(monkeypatch):
+    mock_client = mock.MagicMock()
+    err = _FakeRateLimitError("rate limit exceeded, please slow down")
+    err.code = None
+    mock_client.chat.completions.create.side_effect = [err, _ok_response()]
+
+    sleep_calls = []
+    monkeypatch.setattr("agent.model._sleep", lambda s: sleep_calls.append(s))
+
+    model = OpenAIModel(client=mock_client)
+    result = model.call_model([], [])
+
+    assert result["type"] == "final"
+    assert sleep_calls  # Was retried with a sleep

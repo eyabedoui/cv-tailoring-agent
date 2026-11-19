@@ -102,6 +102,32 @@ Failed tool results are sent back to the model; state is NOT updated on error.
 thread; on timeout the checkpoint treats the submission as rejected and the loop
 returns `stop_reason = "checkpoint_timeout"`.
 
+## Session and chat checkpoint
+
+- `Session(model, checkpoint, logger=None, on_step=None)` wraps `AgentLoop` for multi-turn
+  chat. `send(user_text)` appends the user message, runs the loop, and rebuilds the shared
+  history from the result's messages (system message stripped). Workflow state (`job`,
+  `master_cv`, `tailored_cv`, `cover_letter`) is carried forward between turns via the loop's
+  `state=` parameter. Per-turn step counters always reset; `MAX_STEPS_PER_SESSION = 40` caps
+  the total across all turns. `reset()` clears history, state, and the step counter.
+- History trimming: when `len(history) > MAX_HISTORY_MESSAGES` (60), oldest messages are
+  dropped from the front. After trimming, the first message must be a `user` message; any
+  leading non-user messages are also dropped.
+- `ChatCheckpoint(present_fn, timeout_seconds)` replaces `HumanApprovalCheckpoint`'s
+  interactive terminal prompt with a queue-based API: the agent loop blocks in
+  `request_approval()` until `submit_decision(bool)` is called from the UI thread, or the
+  timeout fires. `submit_decision` raises `TypeError` for non-bool values and silently ignores
+  late decisions (called after `request_approval` has already returned).
+- Quota 429 (error code `insufficient_quota` or message mentions credits/quota/billing) is
+  treated as non-retryable: `OpenAIModel` raises `ModelUnavailableError` immediately without
+  consuming retry attempts. `__main__.py` catches it, prints `Model unavailable: <message>`,
+  and exits with code 2.
+- `on_step` callback in `AgentLoop.__init__`: called after each tool execution and after the
+  human checkpoint, with `{"step": n, "tool": name, "arguments": args, "result": result}`.
+  Wrapped in try/except so a failing callback never crashes the loop.
+- `run()` returns a `"state"` key on every return path (all 8 exit points), enabling the
+  `Session` layer to initialise the next turn from the previous workflow state.
+
 ## Definition of done
 - Merged to `main`.
 - `python -m pytest -q` exits 0.

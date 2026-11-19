@@ -27,13 +27,23 @@ from agent.errors import (
 
 
 class AgentLoop:
-    def __init__(self, model, logger=None, checkpoint=None):
+    def __init__(self, model, logger=None, checkpoint=None, on_step=None):
         self.model = model
         self.tools = TOOL_SCHEMAS
         self.logger = logger or AgentLogger()
         self.checkpoint = checkpoint or HumanApprovalCheckpoint()
+        self.on_step = on_step
 
-    def run(self, initial_messages=None):
+    def _fire_on_step(self, event: dict) -> None:
+        """Call on_step callback, silently ignoring any exception it raises."""
+        if self.on_step is None:
+            return
+        try:
+            self.on_step(event)
+        except Exception:
+            pass
+
+    def run(self, initial_messages=None, state=None):
         run_start = time.perf_counter()
 
         messages = [
@@ -43,7 +53,8 @@ class AgentLoop:
         if initial_messages:
             messages.extend(initial_messages)
 
-        state = {
+        # Per-turn loop control counters — always fresh each run.
+        loop_state = {
             "step_count": 0,
             "match_score": None,
             "identical_call_count": 0,
@@ -54,24 +65,39 @@ class AgentLoop:
 
         previous_call = None
 
-        # Information collected during the workflow.
+        # Workflow information collected (or carried in) during the run.
         job = None
         master_cv = None
         tailored_cv = None
         cover_letter = None
+
+        # Initialise from provided state; per-turn counters always reset above.
+        if state:
+            job = state.get("job")
+            master_cv = state.get("master_cv")
+            tailored_cv = state.get("tailored_cv")
+            cover_letter = state.get("cover_letter")
+
+        def _ws():
+            return {
+                "job": job,
+                "master_cv": master_cv,
+                "tailored_cv": tailored_cv,
+                "cover_letter": cover_letter,
+            }
 
         while True:
             response = self.model.call_model(messages, self.tools)
 
             # --- malformed response guard ---
             if not isinstance(response, dict):
-                state["step_count"] += 1
+                loop_state["step_count"] += 1
                 error_result = make_error(
                     BAD_RESPONSE,
                     "Model response was not a dictionary.",
                 )
                 self.logger.log_step(
-                    step=state["step_count"],
+                    step=loop_state["step_count"],
                     tool_name="(none)",
                     input_data={},
                     output_data=error_result,
@@ -83,17 +109,17 @@ class AgentLoop:
                     "name": "(none)",
                     "content": _wrap(error_result),
                 })
-                stop, reason = should_stop(state)
+                stop, reason = should_stop(loop_state)
                 if stop:
-                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
-                    return _stop_result(None, reason, state["step_count"], messages)
+                    self.logger.log_stop(step=loop_state["step_count"], stop_reason=reason)
+                    return _stop_result(None, reason, loop_state["step_count"], messages, _ws())
                 continue
 
             response_type = response.get("type")
 
             if response_type == "final":
                 answer = response.get("content", "")
-                state["done"] = True
+                loop_state["done"] = True
 
                 messages.append({
                     "role": "assistant",
@@ -104,12 +130,12 @@ class AgentLoop:
                 tokens_in = usage.get("input_tokens", 0)
                 tokens_out = usage.get("output_tokens", 0)
 
-                _, reason = should_stop(state)
+                _, reason = should_stop(loop_state)
 
                 total_ms = (time.perf_counter() - run_start) * 1000
 
                 self.logger.log_stop(
-                    step=state["step_count"],
+                    step=loop_state["step_count"],
                     stop_reason=reason,
                     tokens_in=tokens_in,
                     tokens_out=tokens_out,
@@ -119,19 +145,20 @@ class AgentLoop:
                 return {
                     "answer": answer,
                     "stop_reason": reason,
-                    "step_count": state["step_count"],
+                    "step_count": loop_state["step_count"],
                     "messages": messages,
+                    "state": _ws(),
                 }
 
             if response_type != "tool_call":
                 # Unsupported type — treat as bad response, count as a step.
-                state["step_count"] += 1
+                loop_state["step_count"] += 1
                 error_result = make_error(
                     BAD_RESPONSE,
                     f"Unsupported model response type: {response_type!r}.",
                 )
                 self.logger.log_step(
-                    step=state["step_count"],
+                    step=loop_state["step_count"],
                     tool_name="(none)",
                     input_data={},
                     output_data=error_result,
@@ -143,10 +170,10 @@ class AgentLoop:
                     "name": "(none)",
                     "content": _wrap(error_result),
                 })
-                stop, reason = should_stop(state)
+                stop, reason = should_stop(loop_state)
                 if stop:
-                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
-                    return _stop_result(None, reason, state["step_count"], messages)
+                    self.logger.log_stop(step=loop_state["step_count"], stop_reason=reason)
+                    return _stop_result(None, reason, loop_state["step_count"], messages, _ws())
                 continue
 
             tool_name = response.get("tool_name")
@@ -154,13 +181,13 @@ class AgentLoop:
 
             if not isinstance(arguments, dict):
                 # Non-dict arguments — bad response, count as a step.
-                state["step_count"] += 1
+                loop_state["step_count"] += 1
                 error_result = make_error(
                     BAD_RESPONSE,
                     "Tool arguments must be a dictionary.",
                 )
                 self.logger.log_step(
-                    step=state["step_count"],
+                    step=loop_state["step_count"],
                     tool_name=tool_name or "(none)",
                     input_data={},
                     output_data=error_result,
@@ -172,10 +199,10 @@ class AgentLoop:
                     "name": tool_name or "(none)",
                     "content": _wrap(error_result),
                 })
-                stop, reason = should_stop(state)
+                stop, reason = should_stop(loop_state)
                 if stop:
-                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
-                    return _stop_result(None, reason, state["step_count"], messages)
+                    self.logger.log_stop(step=loop_state["step_count"], stop_reason=reason)
+                    return _stop_result(None, reason, loop_state["step_count"], messages, _ws())
                 continue
 
             if tool_name == "submit_application":
@@ -190,7 +217,7 @@ class AgentLoop:
                 id_mismatch = job is not None and job_id != job.get("job_id")
 
                 if missing_prereqs or id_mismatch:
-                    state["step_count"] += 1
+                    loop_state["step_count"] += 1
                     if id_mismatch:
                         msg = (
                             "Submission job ID does not match the reviewed job. "
@@ -204,7 +231,7 @@ class AgentLoop:
                         )
                     error_result = make_error(INVALID_ARGUMENTS, msg)
                     self.logger.log_step(
-                        step=state["step_count"],
+                        step=loop_state["step_count"],
                         tool_name=tool_name,
                         input_data=arguments,
                         output_data=error_result,
@@ -224,14 +251,14 @@ class AgentLoop:
                         "name": tool_name,
                         "content": _wrap(error_result),
                     })
-                    stop, reason = should_stop(state)
+                    stop, reason = should_stop(loop_state)
                     if stop:
-                        self.logger.log_stop(step=state["step_count"], stop_reason=reason)
-                        return _stop_result(None, reason, state["step_count"], messages)
+                        self.logger.log_stop(step=loop_state["step_count"], stop_reason=reason)
+                        return _stop_result(None, reason, loop_state["step_count"], messages, _ws())
                     continue
 
                 # The model's submission request counts as a step.
-                state["step_count"] += 1
+                loop_state["step_count"] += 1
 
                 # Display the review and obtain the human decision.
                 approved = self.checkpoint.request_approval(
@@ -246,43 +273,52 @@ class AgentLoop:
                 timed_out = getattr(self.checkpoint, "timed_out", False)
 
                 self.logger.log_checkpoint(
-                    step=state["step_count"],
+                    step=loop_state["step_count"],
                     review_text=self.checkpoint.last_review_text,
                     approved=approved,
                     timed_out=timed_out,
                 )
 
+                self._fire_on_step({
+                    "step": loop_state["step_count"],
+                    "tool": "human_checkpoint",
+                    "arguments": {"job_id": job_id},
+                    "result": {"approved": approved, "timed_out": timed_out},
+                })
+
                 if timed_out:
-                    state["checkpoint_timed_out"] = True
-                    _, reason = should_stop(state)
-                    self.logger.log_stop(step=state["step_count"], stop_reason=reason)
+                    loop_state["checkpoint_timed_out"] = True
+                    _, reason = should_stop(loop_state)
+                    self.logger.log_stop(step=loop_state["step_count"], stop_reason=reason)
                     return _stop_result(
                         "Checkpoint timed out; submission cancelled.",
                         reason,
-                        state["step_count"],
+                        loop_state["step_count"],
                         messages,
+                        _ws(),
                     )
 
                 if not approved:
-                    state["user_rejected"] = True
-                    _, reason = should_stop(state)
+                    loop_state["user_rejected"] = True
+                    _, reason = should_stop(loop_state)
 
                     self.logger.log_stop(
-                        step=state["step_count"],
+                        step=loop_state["step_count"],
                         stop_reason=reason,
                     )
 
                     return _stop_result(
                         "Application submission was rejected by the user.",
                         reason,
-                        state["step_count"],
+                        loop_state["step_count"],
                         messages,
+                        _ws(),
                     )
 
             # Record the tool-call decision.
             # For submission, the step was already counted above.
             if tool_name != "submit_application":
-                state["step_count"] += 1
+                loop_state["step_count"] += 1
 
             messages.append({
                 "role": "assistant",
@@ -299,9 +335,9 @@ class AgentLoop:
             }
 
             if current_call == previous_call:
-                state["identical_call_count"] += 1
+                loop_state["identical_call_count"] += 1
             else:
-                state["identical_call_count"] = 1
+                loop_state["identical_call_count"] = 1
 
             previous_call = current_call
 
@@ -330,14 +366,14 @@ class AgentLoop:
                 if tool_name == "match_skills":
                     score = result.get("score", result.get("match_score"))
                     if score is not None:
-                        state["match_score"] = score
+                        loop_state["match_score"] = score
 
             usage = response.get("usage", {})
             tokens_in = usage.get("input_tokens", 0)
             tokens_out = usage.get("output_tokens", 0)
 
             self.logger.log_step(
-                step=state["step_count"],
+                step=loop_state["step_count"],
                 tool_name=tool_name,
                 input_data=arguments,
                 output_data=result,
@@ -347,23 +383,30 @@ class AgentLoop:
                 tokens_out=tokens_out,
             )
 
+            self._fire_on_step({
+                "step": loop_state["step_count"],
+                "tool": tool_name,
+                "arguments": arguments,
+                "result": result,
+            })
+
             messages.append({
                 "role": "tool",
                 "name": tool_name,
                 "content": _wrap(result),
             })
 
-            stop, reason = should_stop(state)
+            stop, reason = should_stop(loop_state)
 
             if stop:
                 total_ms = (time.perf_counter() - run_start) * 1000
                 self.logger.log_stop(
-                    step=state["step_count"],
+                    step=loop_state["step_count"],
                     stop_reason=reason,
                     total_ms=total_ms,
                 )
 
-                return _stop_result(None, reason, state["step_count"], messages)
+                return _stop_result(None, reason, loop_state["step_count"], messages, _ws())
 
 
 def _wrap(result) -> str:
@@ -372,10 +415,11 @@ def _wrap(result) -> str:
     return wrap_untrusted(result)
 
 
-def _stop_result(answer, reason, step_count, messages):
+def _stop_result(answer, reason, step_count, messages, workflow_state=None):
     return {
         "answer": answer,
         "stop_reason": reason,
         "step_count": step_count,
         "messages": messages,
+        "state": workflow_state if workflow_state is not None else {},
     }
