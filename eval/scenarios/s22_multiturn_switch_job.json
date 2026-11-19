@@ -1,0 +1,53 @@
+{
+  "id": "s22_multiturn_switch_job",
+  "category": "multiturn",
+  "description": "Two-turn chat: first turn tries job_005 (DevOps, no_match stops the loop). User switches to job_001 in second turn and approves.",
+  "job_id": "job_001",
+  "fake_only": true,
+  "messages": [
+    "Tailor the master CV for the job at http://127.0.0.1:5000/jobs/job_005 and submit the application.",
+    "job_005 was not a good fit. Please try job_001 at http://127.0.0.1:5000/jobs/job_001 instead."
+  ],
+  "decisions": ["yes"],
+  "fake_script": [
+    {
+      "tool": "read_job_posting",
+      "args": {"url": "http://127.0.0.1:5000/jobs/job_005"}
+    },
+    {"tool": "read_master_cv"},
+    {
+      "tool": "match_skills",
+      "args": {
+        "cv_text": "$MASTER_CV",
+        "job": {
+          "job_id": "job_005",
+          "title": "DevOps Engineer",
+          "requirements": ["Docker", "Kubernetes", "AWS", "Terraform"]
+        }
+      }
+    },
+    {
+      "tool": "read_job_posting",
+      "args": {"url": "http://127.0.0.1:5000/jobs/job_001"}
+    },
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "kind": "cv"},
+    {"tool": "save_tailored_cv", "kind": "cover_letter"},
+    {"tool": "submit_application"}
+  ],
+  "expected_steps": [
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_005"}},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_001"}},
+    {"tool": "submit_application", "args": {"job_id": "job_001"}}
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": true,
+  "max_steps_allowed": 12
+}

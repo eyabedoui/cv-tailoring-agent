@@ -7,13 +7,24 @@
     "id": {"type": "string"},
     "category": {"type": "string"},
     "description": {"type": "string"},
+    "mode": {
+      "type": "string",
+      "enum": ["offline", "replay", "live"],
+      "default": "offline",
+      "description": "offline=FakeModel+WEB_MODE=fake; replay=real OpenAI+WEB_MODE=replay (skipped when --model fake); live=real sites (skipped when --model fake)"
+    },
     "job_id": {"type": "string"},
     "job_url": {"type": "string", "description": "Defaults to http://127.0.0.1:5000/jobs/<job_id>"},
-    "task": {"type": "string", "description": "Overrides the user message sent to the agent"},
+    "task": {"type": "string", "description": "Single-turn user message. Overridden by messages[] when present."},
+    "messages": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Multi-turn user messages sent in sequence via Session.send(). Overrides task."
+    },
     "posting": {"type": "object", "description": "Inline posting written to sandbox/postings/<job_id>.json for this run only (used by injection cases)"},
     "preapplied": {"type": "array", "items": {"type": "string"}, "description": "Job ids already applied to before the run (duplicate tests)"},
     "fault_mode": {"type": "string", "enum": ["none", "down", "timeout", "bad_response", "fail_once", "reject_duplicate", "unknown"], "default": "none"},
-    "decisions": {"type": "array", "items": {"type": "string", "enum": ["yes", "no"]}, "description": "Human answers at the checkpoint, in order"},
+    "decisions": {"type": "array", "items": {"type": "string", "enum": ["yes", "no"]}, "description": "Human answers at the checkpoint in order, consumed across all turns"},
     "expected_steps": {
       "type": "array",
       "items": {

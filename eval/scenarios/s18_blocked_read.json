@@ -1,0 +1,27 @@
+{
+  "id": "s18_blocked_read",
+  "category": "fault_mode",
+  "description": "FAULT_MODE=blocked: read_job_posting returns SITE_BLOCKED. Agent reports the blockage and stops.",
+  "job_id": "job_001",
+  "fault_mode": "blocked",
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {
+      "tool": "read_job_posting"
+    },
+    {
+      "final": "The job site is currently blocking automated access. Please try reading the posting manually or try again later."
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {"url": "http://127.0.0.1:5000/jobs/job_001"},
+      "expect_error": "SITE_BLOCKED"
+    }
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": false,
+  "max_steps_allowed": 3
+}
