@@ -12,13 +12,13 @@ approval.
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env        # then fill in ANTHROPIC_API_KEY
+cp .env.example .env        # then fill in OPENAI_API_KEY
 ```
 
 ## Run
 
 ```bash
-# Full run with real model (requires API key)
+# Full run with real model (requires OPENAI_API_KEY in .env)
 python -m agent --job-url mock://jobs/job_001
 
 # Demo run with no API key required

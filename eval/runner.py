@@ -188,10 +188,11 @@ class ScriptedModel:
 
 
 def build_model(s: dict, kind: str):
+    """Build a model for a scenario run.  kind='fake' uses the scripted model; kind='real' uses OpenAI."""
     if kind == "fake":
         return ScriptedModel(build_script(s), make_ctx(s), s.get("fake_final", "Finished."))
-    from agent.model import AnthropicModel
-    return AnthropicModel()
+    from agent.model import OpenAIModel
+    return OpenAIModel()
 
 
 # ------------------------------------------------------------- environment
@@ -545,8 +546,8 @@ def main(argv=None) -> int:
     ap.add_argument("--verbose", action="store_true", help="show the checkpoint output")
     args = ap.parse_args(argv)
     os.chdir(ROOT)
-    if args.model == "real" and not os.environ.get("ANTHROPIC_API_KEY"):
-        ap.error("ANTHROPIC_API_KEY is not set (export it, or: set -a; source .env; set +a)")
+    if args.model == "real" and not os.environ.get("OPENAI_API_KEY"):
+        ap.error("OPENAI_API_KEY is not set (export it, or: set -a; source .env; set +a)")
     results, _ = run_folder(Path(args.folder), args.model, args.run_name, args.only, not args.verbose)
     return 0 if all(r["passed"] for r in results) else 1
 

@@ -31,9 +31,12 @@ ALLOWED_URL_PREFIX = "mock://"
 # Seconds the checkpoint waits for interactive input before timing out.
 CHECKPOINT_TIMEOUT_SECONDS = 120
 
-# Token pricing — fill in from your provider's price list before computing costs.
+# Token pricing — fill from the OpenAI pricing page for the model you use; do not guess.
 PRICE_PER_MTOK_INPUT = 0.0
 PRICE_PER_MTOK_OUTPUT = 0.0
 
 # Max tokens for model responses; 1024 truncated CVs and cover letters in JSON replies.
 MODEL_MAX_TOKENS = 4096
+
+# Default OpenAI model; unverified default — set CV_AGENT_MODEL to a model your key can use.
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
