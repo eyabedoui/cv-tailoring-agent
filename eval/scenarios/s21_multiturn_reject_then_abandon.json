@@ -1,0 +1,32 @@
+{
+  "id": "s21_multiturn_reject_then_abandon",
+  "category": "multiturn",
+  "description": "Two-turn chat: first turn prepares CV for job_004 and user rejects. Second turn user decides not to continue — no submission.",
+  "job_id": "job_004",
+  "fake_only": true,
+  "messages": [
+    "Tailor the master CV for the job at http://127.0.0.1:5000/jobs/job_004 and submit the application. Use only facts from the master CV.",
+    "On reflection, I no longer wish to apply for this position. Please discard it."
+  ],
+  "decisions": ["no"],
+  "fake_script": [
+    {"tool": "read_job_posting"},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "kind": "cv"},
+    {"tool": "save_tailored_cv", "kind": "cover_letter"},
+    {"tool": "submit_application"},
+    {"final": "Understood. The application for the Data Analyst position has been discarded. No submission was made."}
+  ],
+  "expected_steps": [
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_004"}},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_004"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_004"}},
+    {"tool": "submit_application", "args": {"job_id": "job_004"}}
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": false,
+  "max_steps_allowed": 10
+}

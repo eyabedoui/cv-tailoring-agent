@@ -1,0 +1,26 @@
+{
+  "id": "s17_site_not_allowed",
+  "category": "site_guard",
+  "description": "User requests a LinkedIn search. find_jobs returns SITE_NOT_ALLOWED. Agent informs the user and stops.",
+  "job_id": "job_001",
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {
+      "tool": "find_jobs",
+      "args": {"query": "software engineer", "site": "linkedin"}
+    },
+    {
+      "final": "I cannot search LinkedIn — it is not in the list of allowed job sites. I can search tanitjobs, keejob, or weworkremotely instead. Would you like me to search one of those?"
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "find_jobs",
+      "expect_error": "SITE_NOT_ALLOWED"
+    }
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": false,
+  "max_steps_allowed": 3
+}

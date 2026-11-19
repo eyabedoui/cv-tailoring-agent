@@ -1,5 +1,5 @@
 """
-Fabrication checker v1 (C4).
+Fabrication checker v1 (C4) + parser accuracy helper (C5).
 
 check_fabrication(master_cv_text, tailored_text) returns a list of
 {"type": "skill" | "employer" | "degree", "item": str} for things that appear in
@@ -13,9 +13,11 @@ Harder cases (inflated level, invented numbers, changed dates) are C7.
 """
 from __future__ import annotations
 
+import json
 import re
 from functools import lru_cache
 from pathlib import Path
+from typing import Callable
 
 _SANDBOX = Path(__file__).resolve().parent.parent / "sandbox"
 
@@ -135,3 +137,52 @@ def check_fabrication(master_cv_text: str, tailored_text: str,
         add("degree", level)
 
     return flags
+
+
+# ------------------------------------------------------------------ gold labels
+
+def parser_accuracy(
+    gold_path: str | Path,
+    fetch_fn: Callable[[str], str] | None = None,
+) -> dict:
+    """
+    Evaluate parse_posting() against a gold-label file.
+
+    gold_path: eval/gold/<site>_<name>.json — {url, expected_requirements}
+    fetch_fn:  callable(url) -> markdown string.
+               If None, loads from sandbox/snapshots/ via FakePostingClient.
+
+    Returns:
+        {url, precision, recall, f1, extracted, expected}
+    """
+    gold = json.loads(Path(gold_path).read_text(encoding="utf-8"))
+    url = gold["url"]
+    expected_raw: list[str] = gold["expected_requirements"]
+    expected = [t.lower() for t in expected_raw]
+
+    if fetch_fn is None:
+        from agent.tools.clients import FakePostingClient
+        result = FakePostingClient().fetch(url)
+        if "error" in result:
+            raise RuntimeError(f"Cannot fetch {url}: {result['error']}")
+        markdown = result["markdown"]
+    else:
+        markdown = fetch_fn(url)
+
+    from agent.tools.reads import parse_posting
+    posting = parse_posting(markdown, url)
+    extracted = [r.lower() for r in posting.get("requirements", [])]
+
+    matched = set(expected) & set(extracted)
+    precision = len(matched) / len(extracted) if extracted else 0.0
+    recall = len(matched) / len(expected) if expected else 0.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+
+    return {
+        "url": url,
+        "precision": round(precision, 4),
+        "recall": round(recall, 4),
+        "f1": round(f1, 4),
+        "extracted": extracted,
+        "expected": expected,
+    }

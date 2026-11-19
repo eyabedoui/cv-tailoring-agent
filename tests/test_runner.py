@@ -108,9 +108,9 @@ def test_expected_fabrication_passes(tmp_path):
 
 
 def test_exception_is_captured_not_raised(tmp_path, monkeypatch):
-    def boom(self, initial_messages=None):
+    def boom(self, user_text):
         raise RuntimeError("boom")
-    monkeypatch.setattr(runner.AgentLoop, "run", boom)
+    monkeypatch.setattr(runner.Session, "send", boom)
     r = runner.run_scenario(scenario("s01"), "fake", log_dir=tmp_path)
     assert not r["passed"] and "boom" in r["error"]
 

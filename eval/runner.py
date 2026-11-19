@@ -25,6 +25,7 @@ from agent.checkpoint import HumanApprovalCheckpoint
 from agent.config import SANDBOX_DIR
 from agent.logger import AgentLogger
 from agent.loop import AgentLoop
+from agent.session import Session
 from eval.fabrication import check_fabrication, load_master_cv_text
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -35,7 +36,7 @@ DEFAULTS = {
     "category": "unknown", "fault_mode": "none", "decisions": [], "expected_steps": [],
     "expected_stop_reasons": ["done"], "expect_submitted": False, "max_steps_allowed": 12,
     "expect_fabrication": False, "forbidden_calls": [], "forbidden_text": [],
-    "preapplied": [], "fake_only": False,
+    "preapplied": [], "fake_only": False, "mode": "offline", "messages": None,
 }
 
 
@@ -51,6 +52,8 @@ def normalize_scenario(data: dict, source: str = "scenario") -> dict:
         s["expected_stop_reasons"] = [s["expected_stop_reasons"]]
     for key in ("decisions", "expected_steps", "forbidden_calls", "forbidden_text", "preapplied"):
         s[key] = list(s[key])
+    if s["messages"] is not None:
+        s["messages"] = list(s["messages"])
     for d in s["decisions"]:
         if str(d).lower() not in ("yes", "y", "no", "n"):
             raise ValueError(f"{source}: decisions must be yes/no, got {d!r}")
@@ -430,24 +433,40 @@ def run_scenario(s: dict, model_kind: str = "fake", log_dir=None, quiet: bool = 
            "expected_stop_reasons": s["expected_stop_reasons"],
            "expect_submitted": s["expect_submitted"], "error": None}
     old_fault = os.environ.get("FAULT_MODE")
+    old_web_mode = os.environ.get("WEB_MODE")
     posting_file, logger, out = None, None, None
     try:
         reset_sandbox()
         _preapply(s)
         posting_file = _install_posting(s)
         _set_fault(s["fault_mode"])
+        mode = s.get("mode", "offline")
+        if mode == "replay":
+            os.environ["WEB_MODE"] = "replay"
+        elif mode == "live":
+            os.environ["WEB_MODE"] = "live"
         model = build_model(s, model_kind)
         logger = AgentLogger()
         checkpoint = HumanApprovalCheckpoint(auto_approve=False, auto_reject=False,
                                              scripted_decisions=_decisions(s))
-        loop = AgentLoop(model=model, logger=logger, checkpoint=checkpoint)
+        session = Session(model=model, checkpoint=checkpoint, logger=logger)
+        user_messages = list(s["messages"]) if s.get("messages") else [task_message(s)]
         sink = io.StringIO() if quiet else sys.stdout
+        total_steps = 0
         with contextlib.redirect_stdout(sink):
-            out = loop.run(initial_messages=[{"role": "user", "content": task_message(s)}])
+            for msg in user_messages:
+                out = session.send(msg)
+                total_steps += (out or {}).get("step_count", 0)
+        if out is not None:
+            out = {**out, "step_count": total_steps}
     except Exception as exc:  # one broken scenario must not stop the whole run
         res["error"] = f"{type(exc).__name__}: {exc}"
     finally:
         _restore_fault(old_fault)
+        if old_web_mode is None:
+            os.environ.pop("WEB_MODE", None)
+        else:
+            os.environ["WEB_MODE"] = old_web_mode
         if posting_file:
             posting_file.unlink(missing_ok=True)
 
@@ -528,7 +547,9 @@ def run_folder(folder, model_kind="fake", run_name=None, only=None, quiet=True, 
     out_dir.mkdir(parents=True, exist_ok=True)
     results = []
     for s in scenarios:
-        if model_kind == "real" and s["fake_only"]:
+        skip = (model_kind == "real" and s["fake_only"]) or \
+               (model_kind == "fake" and s.get("mode", "offline") in ("replay", "live"))
+        if skip:
             r = {"id": s["id"], "category": s["category"], "fault_mode": s["fault_mode"],
                  "skipped": True, "passed": True}
         else:

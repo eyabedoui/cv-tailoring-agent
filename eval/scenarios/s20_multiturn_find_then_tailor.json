@@ -1,0 +1,39 @@
+{
+  "id": "s20_multiturn_find_then_tailor",
+  "category": "multiturn",
+  "description": "Two-turn chat: first turn searches tanitjobs, second turn tailors and submits the chosen job.",
+  "job_id": "job_007",
+  "fake_only": true,
+  "messages": [
+    "Find Python developer jobs on tanitjobs.",
+    "Great, please tailor my CV for job_007 at http://127.0.0.1:5000/jobs/job_007 and submit the application. Use only facts from the master CV."
+  ],
+  "decisions": ["yes"],
+  "fake_script": [
+    {
+      "tool": "find_jobs",
+      "args": {"query": "Python developer", "site": "tanitjobs"}
+    },
+    {
+      "final": "I found 10 Python-related jobs on tanitjobs. The best match for your profile is job_007: Backend Python Developer at Vortex Technologies (requires Python, Flask, REST APIs, unit testing — all in your CV)."
+    },
+    {"tool": "read_job_posting"},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "kind": "cv"},
+    {"tool": "save_tailored_cv", "kind": "cover_letter"},
+    {"tool": "submit_application"}
+  ],
+  "expected_steps": [
+    {"tool": "find_jobs", "args": {"site": "tanitjobs"}},
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_007"}},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_007"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_007"}},
+    {"tool": "submit_application", "args": {"job_id": "job_007"}}
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": true,
+  "max_steps_allowed": 12
+}

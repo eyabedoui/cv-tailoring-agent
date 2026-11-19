@@ -1,0 +1,26 @@
+{
+  "id": "s16_search_no_results",
+  "category": "search",
+  "description": "Agent searches tanitjobs but reports no suitable match for the user's criteria. No submission.",
+  "job_id": "job_001",
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {
+      "tool": "find_jobs",
+      "args": {"query": "quantum computing embedded firmware", "site": "tanitjobs"}
+    },
+    {
+      "final": "I searched tanitjobs for quantum computing and embedded firmware roles but none of the available positions match your profile. The postings focus on web development, data science, and general software engineering rather than the niche you are targeting."
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "find_jobs",
+      "args": {"site": "tanitjobs"}
+    }
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": false,
+  "max_steps_allowed": 3
+}

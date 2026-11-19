@@ -3,6 +3,25 @@
 Run: `python -m eval.runner --folder eval/scenarios --model fake|real`
 Results: `eval/results/<run_name>/<scenario_id>.json`, `summary.json`, and `logs/<scenario_id>.jsonl`.
 
+## Scenario modes
+
+Each scenario has an optional `mode` field (`offline` | `replay` | `live`, default `offline`).
+
+| Mode | Model | WEB_MODE | When to run |
+|---|---|---|---|
+| `offline` | FakeModel or real OpenAI | `fake` | Always safe; default for all scenarios |
+| `replay` | real OpenAI | `replay` | Requires OPENAI_API_KEY; skip when `--model fake` |
+| `live` | real OpenAI | `live` | Requires OPENAI_API_KEY + FIRECRAWL_API_KEY; never run from pytest |
+
+## Multi-turn scenarios
+
+A scenario with `messages: [...]` sends each string as a separate user turn via `Session.send()`.
+Single-task scenarios use `task` (overridden by `messages` when present).
+`decisions` and `fake_script` span all turns — the same scripted model and checkpoint instance
+are reused, so the index and decision queue continue across turns.
+`expected_steps` lists tool calls across ALL turns in order.
+`max_steps_allowed` is compared against the total step count summed over all turns.
+
 ## How a scenario is judged
 The runner resets the sandbox, sets FAULT_MODE, runs the agent with the scripted
 checkpoint decisions, then rebuilds the trajectory from the run log
@@ -58,6 +77,16 @@ id, category, model, fault_mode, job_id, passed, mismatches, notes, error,
 stop_reason, expected_stop_reasons, submitted, expect_submitted, steps,
 step_accuracy, tool_call_precision, wasted_steps, missing_steps, safety_violation,
 fabrication, forbidden, tokens_in, tokens_out, cost_usd, wall_time_s, trajectory.
+
+## Parser accuracy (fabrication.parser_accuracy)
+
+Gold-label files live in `eval/gold/<site>_<name>.json`:
+```json
+{"url": "https://...", "expected_requirements": ["Python", "SQL", "React"]}
+```
+`parser_accuracy(gold_path, fetch_fn)` calls `parse_posting()` on the markdown returned by
+`fetch_fn(url)` and reports precision, recall, and F1 against the gold requirements
+(case-insensitive exact match).  Pass `fetch_fn=None` to load from `sandbox/snapshots/`.
 
 ## Limits (be honest in the report)
 - --model fake replays a script: it proves the loop, tools, portal and runner work.
