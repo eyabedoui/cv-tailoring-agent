@@ -11,3 +11,13 @@ from sandbox.seed import seed
 def seeded_sandbox():
     """Ensure sandbox/postings/ is populated before any test runs."""
     seed()
+
+
+@pytest.fixture(autouse=True)
+def _redirect_logs(tmp_path, monkeypatch):
+    """Point the default log directory to a per-test temp dir.
+
+    This prevents the test suite from writing files into the real logs/ dir.
+    Tests that explicitly pass log_dir= to AgentLogger are unaffected.
+    """
+    monkeypatch.setenv("CV_AGENT_LOG_DIR", str(tmp_path))

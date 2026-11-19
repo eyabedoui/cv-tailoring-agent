@@ -2,9 +2,10 @@
 """
 Entry point: python -m agent
 
-Extends cli.py's argument parser additively with --job-url and --model.
+Extends cli.py's argument parser additively with --job-url, --request, and --model.
 """
 
+import os
 import sys
 
 from agent.cli import create_argument_parser, create_checkpoint_from_args
@@ -60,8 +61,8 @@ FAKE_WALKTHROUGH_RESPONSES = [
         "type": "tool_call",
         "tool_name": "submit_application",
         "arguments": {
-            "cv_path": "sandbox/output/job_001_cv.txt",
-            "cover_letter_path": "sandbox/output/job_001_cover_letter.txt",
+            "cv_path": "sandbox/output/cv_job_001.md",
+            "cover_letter_path": "sandbox/output/cover_letter_job_001.md",
             "job_id": "job_001",
         },
         "usage": {"input_tokens": 10, "output_tokens": 5},
@@ -77,6 +78,33 @@ FAKE_WALKTHROUGH_RESPONSES = [
 ]
 
 
+def _load_dotenv():
+    """Read KEY=VALUE pairs from .env in cwd and set missing env vars.
+
+    Ignores blank lines and lines starting with '#'.  Strips surrounding
+    quotes from values.  Never overrides an already-set variable.
+    Never prints values.
+    """
+    env_path = os.path.join(os.getcwd(), ".env")
+    if not os.path.isfile(env_path):
+        return
+    with open(env_path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            # Strip surrounding single or double quotes.
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            if key:
+                os.environ.setdefault(key, value)
+
+
 def _build_parser():
     parser = create_argument_parser()
 
@@ -86,6 +114,14 @@ def _build_parser():
         default=f"{ALLOWED_URL_PREFIX}jobs/job_001",
         metavar="URL",
         help="URL of the job posting to process.",
+    )
+
+    parser.add_argument(
+        "--request",
+        type=str,
+        default=None,
+        metavar="TEXT",
+        help="Override the generated task message (--job-url is then ignored).",
     )
 
     parser.add_argument(
@@ -99,6 +135,8 @@ def _build_parser():
 
 
 def main(argv=None):
+    _load_dotenv()
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -120,11 +158,22 @@ def main(argv=None):
         from agent.model import AnthropicModel
         model = AnthropicModel()
 
+    # Build the initial user message.
+    if args.request:
+        user_message = args.request
+    else:
+        user_message = (
+            f"Tailor my CV for the job posting at {args.job_url}. "
+            "Read the posting and my master CV, match skills, "
+            "save a tailored CV and a cover letter, "
+            "then submit the application (a human will approve it)."
+        )
+
     checkpoint = create_checkpoint_from_args(args)
     logger = AgentLogger()
 
     agent = AgentLoop(model=model, logger=logger, checkpoint=checkpoint)
-    result = agent.run()
+    result = agent.run(initial_messages=[{"role": "user", "content": user_message}])
 
     print("\n--- Agent finished ---")
     print(f"Answer     : {result['answer']}")

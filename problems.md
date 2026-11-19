@@ -239,14 +239,18 @@ into a synthetic submit step.
   `python -m agent` calls `agent.run()` with no initial message. The real model gets no task and
   possibly an empty message list. Fix: treat `user` like `tool` (api_role `user`) and pass a task
   message from `--job-url` in `__main__.py`.
+  FIXED (A9)
 - OPEN (owner A) `--job-url` is parsed in `__main__.py` but never used.
+  FIXED (A9)
 - OPEN (owner A) `FAULT_MODE=unknown` returns an error dict with an unknown code, so `is_error()` is
   False and the loop stores it as `job` (state is updated from an error). Add the code to
   ERROR_CODES or make `is_error` check for the `error` key.
+  FIXED (A9)
 - NOTE `stop_reason == "done"` does not mean submitted. Any final answer sets done. The runner
   judges success from the stop reason AND a successful submit_application result.
 - NOTE Tests write real log files into `logs/`. `logs/` is in .gitignore. If they are already
   tracked, run `git rm -r --cached logs`.
+  FIXED (A9)
 - NOTE `docs/sandbox.md` says matching is substring-based but lists job_003 as 0.00 even though
   "Java" is a substring of "JavaScript". Verify scores before trusting the no_match scenarios.
 
@@ -256,4 +260,49 @@ into a synthetic submit step.
 
 - OPEN (owner B, B7) `read_job_posting` returns title, company and text with no HTML, hidden-text or zero-width stripping and no length limit. Needed for injection cases 6 and 8.
 - OPEN (owner A) Real-model injection runs are blocked by the missing task message in `agent/model.py` (see Person C's finding above).
+  FIXED (A9)
 - NOTE `agent/untrusted.py` reviewed: the wrapper escapes `<`, `>` and `&` and no hole was found.
+
+---
+
+## 2026-11-19 · `_convert_messages` dropped user messages; empty message list sent to API
+- **Symptom**: Real-model runs sent no task to the model; `user` messages from `initial_messages` were silently discarded, and if only an `assistant` message preceded the first API call the list could start with a non-user role, violating the Anthropic API contract.
+- **Cause**: `_convert_messages` had no branch for `role == "user"` and fell through to `continue`.
+- **Fix**: Added `user` to the pass-through branch (api_role `"user"`). After conversion, if the list is empty or starts with `"assistant"`, prepend `{"role": "user", "content": "Start the task."}`.
+- **Test**: `test_model.py::test_convert_user_message_is_kept`, `test_convert_user_message_is_first`, `test_convert_prepends_start_task_when_first_is_assistant`, `test_convert_prepends_start_task_for_empty_input`, `test_convert_prepends_start_task_for_system_only`.
+
+## 2026-11-19 · `--job-url` parsed but never used; real model received no task
+- **Symptom**: Running `python -m agent --job-url mock://jobs/job_001` passed no initial message to the loop, so the real model had nothing to act on.
+- **Cause**: `agent/__main__.py` called `agent.run()` with no `initial_messages` argument despite having the URL available.
+- **Fix**: Build a user message from `--job-url` and pass it via `initial_messages=[...]`. Added `--request TEXT` flag to override the generated message.
+- **Test**: `test_main.py::test_no_request_flag_uses_job_url`, `test_request_flag_replaces_generated_message`, `test_request_flag_ignores_job_url`.
+
+## 2026-11-19 · `max_tokens=1024` truncated CV and cover letter content in JSON replies
+- **Symptom**: Real-model runs returned truncated output; CV and cover letter content was cut off inside the JSON reply.
+- **Cause**: `AnthropicModel.call_model` hard-coded `max_tokens=1024`.
+- **Fix**: Added `MODEL_MAX_TOKENS = 4096` to `agent/config.py`; `call_model` now uses `MODEL_MAX_TOKENS`.
+- **Test**: `test_model.py::test_max_tokens_equals_model_max_tokens`.
+
+## 2026-11-19 · Wrong file paths in `FAKE_WALKTHROUGH_RESPONSES` submit step
+- **Symptom**: The fake walkthrough's `submit_application` step referenced `job_001_cv.txt` and `job_001_cover_letter.txt`, but `save_tailored_cv` actually writes `cv_job_001.md` and `cover_letter_job_001.md`.
+- **Cause**: Stale placeholder paths were copy-pasted from an earlier design; filename convention changed in Person B's real write tools.
+- **Fix**: Updated `FAKE_WALKTHROUGH_RESPONSES` to use `sandbox/output/cv_job_001.md` and `sandbox/output/cover_letter_job_001.md`.
+- **Test**: `test_main.py::test_fake_walkthrough_cv_path_matches_save_tailored_cv`, `test_fake_walkthrough_cover_letter_path_matches_save_tailored_cv`.
+
+## 2026-11-19 · Tests wrote real log files into `logs/`
+- **Symptom**: Running the test suite created `.jsonl` files in `logs/` in the repo working tree.
+- **Cause**: `AgentLogger` defaulted to `log_dir="logs"` and tests that constructed `AgentLoop` without an explicit logger inherited this default.
+- **Fix**: `AgentLogger.__init__` checks the `CV_AGENT_LOG_DIR` environment variable before falling back to `"logs/"`. A new function-scoped `autouse` fixture in `tests/conftest.py` sets `CV_AGENT_LOG_DIR` to the pytest `tmp_path` for every test.
+- **Test**: All existing logger and runner tests continue to pass; logs no longer appear in `logs/` after `pytest`.
+
+## 2026-11-19 · `.env` file never loaded; `ANTHROPIC_API_KEY` had to be set manually
+- **Symptom**: README said "cp .env.example .env" but nothing read `.env`, so `ANTHROPIC_API_KEY` was always missing even when the file existed.
+- **Cause**: No `.env` loading code in the entry point.
+- **Fix**: Added `_load_dotenv()` in `agent/__main__.py`: reads simple `KEY=VALUE` lines (skips blanks and `#` comments, strips quotes), sets missing env vars with `os.environ.setdefault`. Never overrides existing variables.
+- **Test**: `test_main.py::test_load_dotenv_sets_missing_variable`, `test_load_dotenv_does_not_override_existing`, `test_load_dotenv_ignores_blank_lines_and_comments`, `test_load_dotenv_strips_quotes`, `test_load_dotenv_no_file_does_nothing`.
+
+## 2026-11-19 · Unknown `FAULT_MODE` error code stored as job state
+- **Symptom**: `FAULT_MODE=unknown` returned `{"error": "FAULT_INJECTED", ...}`; because `"FAULT_INJECTED"` is not in `ERROR_CODES`, `is_error()` returned `False` and the loop updated `job` with the error dict.
+- **Cause**: `is_error()` checked `result["error"] in ERROR_CODES` rather than testing for the presence of a string `"error"` key.
+- **Fix**: `is_error()` now returns `True` for any `dict` where `"error"` maps to a `str`, regardless of whether the code is in `ERROR_CODES`. `ERROR_CODES` remains the canonical list of known codes.
+- **Test**: `test_errors.py::test_is_error_true_for_unknown_code`, `test_errors.py::test_unknown_fault_code_does_not_set_job`; updated comment in `test_fault_modes.py::test_unknown_fault_returns_non_standard_error_code`.

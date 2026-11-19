@@ -10,6 +10,7 @@ import json
 import os
 import re
 
+from agent.config import MODEL_MAX_TOKENS
 from agent.prompts import SYSTEM_PROMPT, JSON_PROTOCOL_PROMPT
 from agent.untrusted import wrap_untrusted
 
@@ -54,7 +55,7 @@ class AnthropicModel:
 
         response = self._client.messages.create(
             model=self.model_id,
-            max_tokens=1024,
+            max_tokens=MODEL_MAX_TOKENS,
             system=system_prompt,
             messages=api_messages,
         )
@@ -93,11 +94,16 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
     Convert loop messages to Anthropic API message format.
 
     Loop roles:
-        system   -> absorbed into system prompt (skipped here)
+        system    -> absorbed into system prompt (skipped here)
         assistant -> assistant
-        tool     -> user (the untrusted wrapper is already applied by loop.py)
+        user      -> user
+        tool      -> user (the untrusted wrapper is already applied by loop.py)
 
     Consecutive messages with the same role are merged into one.
+
+    The Anthropic API requires the first message to be from the user.  If the
+    resulting list is empty or starts with an assistant message, a synthetic
+    user message ("Start the task.") is prepended.
     """
     api_messages = []
 
@@ -110,7 +116,7 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
         if role == "assistant":
             api_role = "assistant"
             content = msg.get("content", "")
-        elif role == "tool":
+        elif role in ("tool", "user"):
             api_role = "user"
             content = msg.get("content", "")
         else:
@@ -121,6 +127,9 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
             api_messages[-1]["content"] += "\n" + content
         else:
             api_messages.append({"role": api_role, "content": content})
+
+    if not api_messages or api_messages[0]["role"] != "user":
+        api_messages.insert(0, {"role": "user", "content": "Start the task."})
 
     return api_messages
 

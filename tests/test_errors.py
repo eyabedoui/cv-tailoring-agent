@@ -49,6 +49,15 @@ def test_all_error_codes_known():
         assert is_error(err)
 
 
+def test_is_error_true_for_unknown_code():
+    # Any dict with a string "error" key is an error, even if the code is not in ERROR_CODES.
+    assert is_error({"error": "FAULT_INJECTED", "message": "fault", "retryable": False}) is True
+
+
+def test_is_error_false_when_error_key_is_not_string():
+    assert is_error({"error": 42}) is False
+
+
 # ---------------------------------------------------------------------------
 # Failed read_job_posting does NOT set job state
 # ---------------------------------------------------------------------------
@@ -184,3 +193,36 @@ def test_unsupported_response_type_ends_by_max_steps(tmp_path):
     result = agent.run()
     assert result["stop_reason"] == "max_steps"
     assert result["step_count"] == MAX_STEPS
+
+
+# ---------------------------------------------------------------------------
+# Unknown-code error from read_job_posting must NOT set job state
+# ---------------------------------------------------------------------------
+
+def test_unknown_fault_code_does_not_set_job(monkeypatch, tmp_path):
+    """FAULT_INJECTED has a string 'error' key so is_error() is True → job stays None."""
+
+    def patched_execute_tool(tool_name, arguments):
+        if tool_name == "read_job_posting":
+            return {"error": "FAULT_INJECTED", "message": "fault injected", "retryable": False}
+        return {}
+
+    monkeypatch.setattr("agent.loop.execute_tool", patched_execute_tool)
+
+    model = FakeModel([
+        {"type": "tool_call", "tool_name": "read_job_posting",
+         "arguments": {"url": "mock://jobs/job_001"}},
+        # Try to submit without job set — should fail in the submit gate.
+        {"type": "tool_call", "tool_name": "submit_application",
+         "arguments": {"cv_path": "x", "cover_letter_path": "y", "job_id": "job_001"}},
+        {"type": "final", "content": "Could not complete."},
+    ])
+
+    checkpoint = HumanApprovalCheckpoint(auto_approve=True)
+    logger = AgentLogger(log_dir=tmp_path, run_id="unknown_fault_loop")
+    agent = AgentLoop(model, checkpoint=checkpoint, logger=logger)
+    result = agent.run()
+
+    # The checkpoint must NOT have been reached — job was never set.
+    assert checkpoint.last_decision is None
+    assert result["stop_reason"] == "done"
