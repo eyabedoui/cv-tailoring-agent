@@ -70,8 +70,10 @@ def test_convert_skips_system_messages():
         {"role": "assistant", "content": "I will help."},
     ]
     api = _convert_messages(messages)
-    assert len(api) == 1
-    assert api[0]["role"] == "assistant"
+    # system is excluded; since no user precedes the assistant, "Start the task." is prepended
+    assert all(m["role"] != "system" for m in api)
+    assert api[0]["role"] == "user"
+    assert api[-1]["role"] == "assistant"
 
 
 def test_convert_tool_becomes_user():
@@ -95,11 +97,89 @@ def test_convert_merges_consecutive_same_role():
 
 def test_convert_does_not_merge_different_roles():
     messages = [
+        {"role": "user", "content": "task"},
         {"role": "assistant", "content": "step 1"},
         {"role": "tool", "name": "x", "content": "result"},
     ]
     api = _convert_messages(messages)
-    assert len(api) == 2
+    # user, assistant, user(tool) — three distinct role-changes, no merging
+    assert len(api) == 3
+
+
+def test_convert_user_message_is_kept():
+    messages = [
+        {"role": "user", "content": "Please tailor my CV."},
+    ]
+    api = _convert_messages(messages)
+    assert len(api) == 1
+    assert api[0]["role"] == "user"
+    assert api[0]["content"] == "Please tailor my CV."
+
+
+def test_convert_user_message_is_first():
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "My task."},
+        {"role": "assistant", "content": "step 1"},
+    ]
+    api = _convert_messages(messages)
+    assert api[0]["role"] == "user"
+
+
+def test_convert_prepends_start_task_when_first_is_assistant():
+    messages = [
+        {"role": "assistant", "content": "I will start."},
+        {"role": "tool", "name": "x", "content": "result"},
+    ]
+    api = _convert_messages(messages)
+    assert api[0]["role"] == "user"
+    assert api[0]["content"] == "Start the task."
+
+
+def test_convert_prepends_start_task_for_empty_input():
+    api = _convert_messages([])
+    assert len(api) == 1
+    assert api[0] == {"role": "user", "content": "Start the task."}
+
+
+def test_convert_prepends_start_task_for_system_only():
+    messages = [{"role": "system", "content": "prompt"}]
+    api = _convert_messages(messages)
+    assert api[0] == {"role": "user", "content": "Start the task."}
+
+
+def test_convert_merges_user_and_tool_into_user():
+    messages = [
+        {"role": "user", "content": "task"},
+        {"role": "tool", "name": "x", "content": "result"},
+    ]
+    api = _convert_messages(messages)
+    assert len(api) == 1
+    assert api[0]["role"] == "user"
+    assert "task" in api[0]["content"]
+    assert "result" in api[0]["content"]
+
+
+# ---------------------------------------------------------------------------
+# max_tokens uses MODEL_MAX_TOKENS
+# ---------------------------------------------------------------------------
+
+def test_max_tokens_equals_model_max_tokens(monkeypatch):
+    from agent.config import MODEL_MAX_TOKENS
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    mock_response = _make_mock_response('{"type": "final", "content": "done"}')
+
+    with mock.patch("anthropic.Anthropic") as MockAnthropic:
+        instance = MockAnthropic.return_value
+        instance.messages.create.return_value = mock_response
+
+        model = AnthropicModel(model="claude-haiku-4-5")
+        model.call_model([], [])
+
+    call_kwargs = instance.messages.create.call_args.kwargs
+    assert call_kwargs["max_tokens"] == MODEL_MAX_TOKENS
 
 
 # ---------------------------------------------------------------------------

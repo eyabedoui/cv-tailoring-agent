@@ -11,6 +11,7 @@ Each event is stored as one JSON line.
 """
 
 import json
+import os
 import re
 import uuid
 
@@ -49,12 +50,15 @@ def redact_sensitive_data(value):
 
 
 class AgentLogger:
-    def __init__(self, log_dir="logs", run_id=None):
+    def __init__(self, log_dir=None, run_id=None):
         """
         Initialize the logger.
 
         Each run gets a separate JSONL file.
+        log_dir defaults to the CV_AGENT_LOG_DIR env var, then "logs/".
         """
+        if log_dir is None:
+            log_dir = os.environ.get("CV_AGENT_LOG_DIR", "logs")
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 

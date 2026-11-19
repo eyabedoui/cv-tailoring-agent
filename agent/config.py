@@ -34,3 +34,6 @@ CHECKPOINT_TIMEOUT_SECONDS = 120
 # Token pricing — fill in from your provider's price list before computing costs.
 PRICE_PER_MTOK_INPUT = 0.0
 PRICE_PER_MTOK_OUTPUT = 0.0
+
+# Max tokens for model responses; 1024 truncated CVs and cover letters in JSON replies.
+MODEL_MAX_TOKENS = 4096

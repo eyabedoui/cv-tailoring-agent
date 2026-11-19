@@ -39,9 +39,14 @@ def make_error(code: str, message: str, retryable: bool = False) -> dict:
 
 
 def is_error(result) -> bool:
-    """Return True if result is an error dict produced by make_error."""
+    """Return True if result is an error dict (has a string 'error' key).
+
+    Any dict with a string-valued 'error' key is treated as an error so that
+    unknown fault codes (e.g. 'FAULT_INJECTED') don't slip through as valid
+    state updates.  ERROR_CODES remains the list of *known* codes.
+    """
     return (
         isinstance(result, dict)
         and "error" in result
-        and result["error"] in ERROR_CODES
+        and isinstance(result["error"], str)
     )

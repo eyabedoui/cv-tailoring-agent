@@ -178,7 +178,8 @@ def test_unknown_fault_returns_non_standard_error_code(tmp_path, monkeypatch):
     monkeypatch.setenv("FAULT_MODE", "unknown")
     portal = _seeded_portal(tmp_path)
     result = read_job_posting("mock://jobs/job_001", _portal=portal)
-    # "FAULT_INJECTED" is not in ERROR_CODES so is_error() returns False.
+    # "FAULT_INJECTED" is not in ERROR_CODES but is_error() still returns True
+    # because is_error() now checks for any dict with a string "error" key.
     assert result.get("error") == "FAULT_INJECTED"
 
 
