@@ -40,3 +40,9 @@ MODEL_MAX_TOKENS = 4096
 
 # Default OpenAI model; unverified default — set CV_AGENT_MODEL to a model your key can use.
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+
+# Total tool-call steps across all turns before Session refuses new sends.
+MAX_STEPS_PER_SESSION = 40
+
+# Maximum messages kept in Session history before oldest are trimmed.
+MAX_HISTORY_MESSAGES = 60

@@ -123,8 +123,27 @@ class OpenAIModel:
                     "OpenAI authentication failed. Check your OPENAI_API_KEY."
                 ) from exc
 
+            except openai.RateLimitError as exc:
+                # Quota / billing errors are non-retryable.
+                err_code = getattr(exc, "code", None) or ""
+                err_body = str(exc).lower()
+                if err_code == "insufficient_quota" or any(
+                    kw in err_body
+                    for kw in ("insufficient_quota", "credits", "quota", "billing")
+                ):
+                    raise ModelUnavailableError(
+                        "OpenAI account has no credits or quota left. "
+                        "Add credits in the OpenAI billing settings, then try again."
+                    ) from exc
+                if attempt < MAX_RETRIES_PER_TOOL:
+                    _sleep(delays[min(attempt, len(delays) - 1)])
+                    continue
+                raise ModelUnavailableError(
+                    "OpenAI API unavailable after retries. "
+                    "Check your connection and rate limits."
+                ) from exc
+
             except (
-                openai.RateLimitError,
                 openai.APIConnectionError,
                 openai.APITimeoutError,
                 openai.InternalServerError,

@@ -191,6 +191,29 @@ def test_fake_walkthrough_cv_path_matches_save_tailored_cv(tmp_path):
     )
 
 
+# ---------------------------------------------------------------------------
+# ModelUnavailableError: prints message and exits with code 2
+# ---------------------------------------------------------------------------
+
+def test_model_unavailable_exits_with_code_2(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    from agent.model import ModelUnavailableError
+
+    def _raise(self, *args, **kwargs):
+        raise ModelUnavailableError("No credits available.")
+
+    monkeypatch.setattr(AgentLoop, "run", _raise)
+
+    with pytest.raises(SystemExit) as exc_info:
+        agent_main(["--model", "fake", "--auto-approve"])
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert "Model unavailable" in captured.out
+    assert "No credits available." in captured.out
+
+
 def test_fake_walkthrough_cover_letter_path_matches_save_tailored_cv(tmp_path):
     """FAKE_WALKTHROUGH_RESPONSES cover_letter_path filename must match save_tailored_cv output."""
     import pathlib

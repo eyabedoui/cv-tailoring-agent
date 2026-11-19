@@ -12,6 +12,7 @@ from agent.cli import create_argument_parser, create_checkpoint_from_args
 from agent.fake_model import FakeModel
 from agent.logger import AgentLogger
 from agent.loop import AgentLoop
+from agent.model import ModelUnavailableError
 from agent.config import ALLOWED_URL_PREFIX
 
 
@@ -173,7 +174,11 @@ def main(argv=None):
     logger = AgentLogger()
 
     agent = AgentLoop(model=model, logger=logger, checkpoint=checkpoint)
-    result = agent.run(initial_messages=[{"role": "user", "content": user_message}])
+    try:
+        result = agent.run(initial_messages=[{"role": "user", "content": user_message}])
+    except ModelUnavailableError as exc:
+        print(f"Model unavailable: {exc}")
+        sys.exit(2)
 
     print("\n--- Agent finished ---")
     print(f"Answer     : {result['answer']}")
