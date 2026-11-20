@@ -3,10 +3,16 @@
 Scan git-tracked files for accidentally committed API keys.
 
 Patterns flagged:
-  - sk-[A-Za-z0-9_-]{20,}          OpenAI-style secret key
-  - fc-[A-Za-z0-9_-]{20,}          Firecrawl-style secret key
-  - OPENAI_API_KEY=<non-empty>      dotenv assignment with a value
-  - FIRECRAWL_API_KEY=<non-empty>   dotenv assignment with a value
+  - OpenAI-style key:    sk- followed by 20+ alphanumeric/dash/underscore chars
+  - Firecrawl-style key: fc- followed by 20+ alphanumeric/dash/underscore chars
+  - Non-empty dotenv:    OPENAI_API_KEY or FIRECRAWL_API_KEY assigned a value
+    (a bare '=' with nothing after it is clean and is NOT flagged)
+
+Per-line opt-out: append  # scan:ignore  to any line to suppress that hit.
+
+Excluded files (never scanned):
+  scripts/scan_secrets.py   (this file — the pattern strings would self-match)
+  tests/test_scan_secrets.py
 
 Usage:
   python scripts/scan_secrets.py
@@ -31,24 +37,39 @@ _BINARY_EXTENSIONS = frozenset(
     ".png .jpg .jpeg .gif .ico .pdf .pyc .pyo .zip .tar .gz .whl .bin .db .sqlite".split()
 )
 
+# Files whose content is expected to contain key-shaped patterns (never scanned).
+_EXCLUDED_PATHS = frozenset({
+    "scripts/scan_secrets.py",
+    "tests/test_scan_secrets.py",
+})
 
-def scan_files(paths: list[str | Path]) -> list[tuple[str, int, str]]:
+
+def scan_files(
+    paths: list[str | Path],
+    excluded_paths: frozenset[str] = _EXCLUDED_PATHS,
+) -> list[tuple[str, int, str]]:
     """
     Scan *paths* for API-key patterns.
 
     Returns a list of (file_path, line_number, redacted_match) tuples.
-    Does not read binary files (filtered by extension).
+    Skips binary files, excluded paths, and lines marked with # scan:ignore.
     """
     hits: list[tuple[str, int, str]] = []
     for p in paths:
         p = Path(p)
         if p.suffix.lower() in _BINARY_EXTENSIONS:
             continue
+        # Normalize to forward slashes so exclusions work on Windows too.
+        rel = str(p).replace("\\", "/")
+        if any(rel.endswith(ex) for ex in excluded_paths):
+            continue
         try:
             text = p.read_text(encoding="utf-8", errors="ignore")
         except (OSError, PermissionError):
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
+            if "# scan:ignore" in line:
+                continue
             m = _KEY_PATTERNS.search(line)
             if m:
                 matched = m.group()

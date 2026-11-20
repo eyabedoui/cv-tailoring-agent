@@ -27,3 +27,5 @@ venv/
 
 .chainlit/
 chainlit.md
+
+sandbox/usage_log.jsonl

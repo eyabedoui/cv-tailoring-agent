@@ -10,8 +10,13 @@ Each line in a log file represents one independent JSON event.
 Log files are stored in:
 
 ```text
-logs/<run_id>.jsonl
+logs/<run_id>.jsonl          # agent run logs (AgentLogger)
+logs/tool_usage.jsonl        # web tool usage log (log_usage)
 ```
+
+The directory defaults to `logs/` and can be overridden with the
+`CV_AGENT_LOG_DIR` environment variable.  Both `logs/` and its contents are
+listed in `.gitignore` and are never committed.
 
 Each agent run has a unique run ID.
 

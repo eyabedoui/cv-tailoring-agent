@@ -1,16 +1,21 @@
 """
 Append-only usage log for real web tool calls.
 
-Each entry is a JSON line written to sandbox/usage_log.jsonl.
-Logging failures are swallowed so they never abort the agent.
+Each entry is a JSON line written to logs/tool_usage.jsonl by default.
+The directory is controlled by the CV_AGENT_LOG_DIR environment variable
+(default: "logs").  Logging failures are swallowed so they never abort the agent.
 """
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agent.config import SANDBOX_DIR
+_LOG_FILENAME = "tool_usage.jsonl"
 
-_LOG_FILENAME = "usage_log.jsonl"
+
+def _default_log_path() -> Path:
+    log_dir = os.environ.get("CV_AGENT_LOG_DIR", "logs")
+    return Path(log_dir) / _LOG_FILENAME
 
 
 def log_usage(
@@ -30,7 +35,7 @@ def log_usage(
       detail   – optional extra context
       _log_path – override path; for tests
     """
-    log_path = _log_path if _log_path is not None else Path(SANDBOX_DIR) / _LOG_FILENAME
+    log_path = _log_path if _log_path is not None else _default_log_path()
     entry: dict = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "tool": tool,
