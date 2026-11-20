@@ -76,6 +76,7 @@ All commands use `python -m ...` directly; there is no Makefile dependency.  Run
 ```bat
 python -m pytest -q
 python -m eval.runner --model fake
+python scripts/scan_secrets.py
 ```
 
 ## Results
