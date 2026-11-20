@@ -2,14 +2,21 @@
 """
 Entry point: python -m agent
 
-Extends cli.py's argument parser additively with
---job-url, --request, and --model.
+Supports three model backends:
+- fake: Offline scripted testing
+- openai: OpenAI API
+- groq: Groq API
+
+Preserves human approval, budget tracking, and agent stop rules.
 """
 
 import os
 import sys
 
-from agent.cli import create_argument_parser, create_checkpoint_from_args
+from agent.cli import (
+    create_argument_parser,
+    create_checkpoint_from_args,
+)
 from agent.fake_model import FakeModel
 from agent.logger import AgentLogger
 from agent.loop import AgentLoop
@@ -163,7 +170,7 @@ SEARCH_THEN_TAILOR_RESPONSES = [
 
 
 def _load_dotenv():
-    """Load missing environment variables from .env in the current directory."""
+    """Load missing environment variables from the local .env file."""
     env_path = os.path.join(os.getcwd(), ".env")
 
     if not os.path.isfile(env_path):
@@ -215,9 +222,9 @@ def _build_parser():
 
     parser.add_argument(
         "--model",
-        choices=["openai", "fake"],
+        choices=["openai", "groq", "fake"],
         default="openai",
-        help="Model backend to use (default: openai).",
+        help="Model backend (default: openai).",
     )
 
     return parser
@@ -229,7 +236,7 @@ def main(argv=None):
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    # Validate scripted decisions.
+    # Validate scripted human-approval decisions.
     if args.scripted_decisions is not None:
         if args.auto_approve or args.auto_reject:
             parser.error(
@@ -255,22 +262,33 @@ def main(argv=None):
             for v in values
         ]
 
-    # Select model backend.
+    # Select the model backend.
     if args.model == "fake":
         model = FakeModel(FAKE_WALKTHROUGH_RESPONSES)
+
+    elif args.model == "groq":
+        from agent.groq_model import GroqModel
+
+        budget_limit = float(
+            os.environ.get("GROQ_API_BUDGET_USD", "0")
+        )
+
+        budget = BudgetTracker(limit_usd=budget_limit)
+
+        model = GroqModel(budget=budget)
 
     else:
         from agent.model import OpenAIModel
 
-        # Read the budget after loading .env.
-        budget_limit = float(os.environ.get("API_BUDGET_USD", "0"))
+        budget_limit = float(
+            os.environ.get("API_BUDGET_USD", "0")
+        )
 
-        # Create the budget tracker for OpenAI requests.
         budget = BudgetTracker(limit_usd=budget_limit)
 
         model = OpenAIModel(budget=budget)
 
-    # Build the initial user message.
+    # Build the initial user request.
     if args.request:
         user_message = args.request
     else:
