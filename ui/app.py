@@ -38,8 +38,8 @@ Welcome! I'm your **CV-tailoring agent**.
 - Prepare and submit your application after your explicit approval
 
 **Example requests:**
-- `Tailor my CV for the job at mock://jobs/job_001`
-- `Check how well I match the posting at mock://jobs/job_005`
+- `Tailor my CV for the job at http://127.0.0.1:5000/jobs/job_001`
+- `Check how well I match the posting at http://127.0.0.1:5000/jobs/job_005`
 
 > **I never submit anything without your explicit approval click.**
 
