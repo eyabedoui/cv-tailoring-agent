@@ -1,8 +1,9 @@
+
 """
 OpenAI model adapter for the CV-tailoring agent.
 
-Converts the loop's internal message/tool format to the OpenAI Chat Completions API
-and parses the response back into the loop's dict protocol.
+Converts the loop's internal message/tool format to the OpenAI Chat
+Completions API and parses the response back into the loop's dict protocol.
 """
 
 import json
@@ -10,8 +11,14 @@ import os
 import re
 import time
 
-from agent.config import MODEL_MAX_TOKENS, MAX_RETRIES_PER_TOOL, DEFAULT_OPENAI_MODEL
+from agent.config import (
+    MODEL_MAX_TOKENS,
+    MAX_RETRIES_PER_TOOL,
+    DEFAULT_OPENAI_MODEL,
+)
 from agent.prompts import SYSTEM_PROMPT, JSON_PROTOCOL_PROMPT
+from agent.budget import BudgetExceededError
+from agent.costs import calculate_token_cost, estimate_request_cost
 
 
 # Patched in tests to avoid real sleeps during retry tests.
@@ -24,9 +31,15 @@ class ModelUnavailableError(RuntimeError):
 
 
 class OpenAIModel:
-    def __init__(self, model=None, client=None):
-        self.model_id = model or os.environ.get("CV_AGENT_MODEL") or DEFAULT_OPENAI_MODEL
-        # Set to True after the API rejects response_format; remembered across calls.
+    def __init__(self, model=None, client=None, budget=None):
+        self.model_id = (
+            model
+            or os.environ.get("CV_AGENT_MODEL")
+            or DEFAULT_OPENAI_MODEL
+        )
+        self.budget = budget
+
+        # Set to True after the API rejects response_format.
         self._skip_response_format = False
 
         if client is not None:
@@ -56,15 +69,24 @@ class OpenAIModel:
         Returns one of:
             {"type": "tool_call", "tool_name": ..., "arguments": ..., "usage": ...}
             {"type": "final", "content": ..., "usage": ...}
-            {"type": "invalid_response", "content": <raw>, "truncated": bool, "usage": ...}
+            {"type": "invalid_response", "content": ..., "truncated": bool, "usage": ...}
         """
-        system_prompt = SYSTEM_PROMPT.strip() + "\n\n" + JSON_PROTOCOL_PROMPT.strip()
+        system_prompt = (
+            SYSTEM_PROMPT.strip()
+            + "\n\n"
+            + JSON_PROTOCOL_PROMPT.strip()
+        )
         tool_descriptions = _format_tools(tools)
-        if tool_descriptions:
-            system_prompt += "\n\nAvailable tools:\n" + tool_descriptions
 
-        # System message is first; _convert_messages adds user/assistant/tool turns.
-        api_messages = [{"role": "system", "content": system_prompt}]
+        if tool_descriptions:
+            system_prompt += (
+                "\n\nAvailable tools:\n" + tool_descriptions
+            )
+
+        # System message is first.
+        api_messages = [
+            {"role": "system", "content": system_prompt}
+        ]
         api_messages.extend(_convert_messages(messages))
 
         response = self._call_with_retries(api_messages)
@@ -103,41 +125,132 @@ class OpenAIModel:
                     "messages": api_messages,
                     "max_completion_tokens": MODEL_MAX_TOKENS,
                 }
-                if not self._skip_response_format:
-                    kwargs["response_format"] = {"type": "json_object"}
 
-                return self._client.chat.completions.create(**kwargs)
+                if not self._skip_response_format:
+                    kwargs["response_format"] = {
+                        "type": "json_object"
+                    }
+
+                estimated_cost = None
+
+                # --------------------------------------------------
+                # API budget and pricing safety checks
+                # --------------------------------------------------
+                if self.budget is not None:
+                    # Preserve the zero-budget protection.
+                    if self.budget.remaining_usd <= 0:
+                        raise BudgetExceededError(
+                            "API budget exceeded. "
+                            "Paid request blocked."
+                        )
+
+                    from agent.config import (
+                        PRICE_PER_MTOK_INPUT,
+                        PRICE_PER_MTOK_OUTPUT,
+                    )
+
+                    # Missing pricing must block paid requests.
+                    if (
+                        PRICE_PER_MTOK_INPUT <= 0
+                        or PRICE_PER_MTOK_OUTPUT <= 0
+                    ):
+                        raise ValueError(
+                            "API pricing is not configured. "
+                            "Paid requests are blocked."
+                        )
+
+                    # Estimate cost before making the request.
+                    estimated_cost = estimate_request_cost(
+                        messages=api_messages,
+                        model=self.model_id,
+                        max_output_tokens=MODEL_MAX_TOKENS,
+                        input_price_per_mtok=PRICE_PER_MTOK_INPUT,
+                        output_price_per_mtok=PRICE_PER_MTOK_OUTPUT,
+                    )
+
+                    # Reserve the estimated cost.
+                    self.budget.reserve(estimated_cost)
+
+                response = self._client.chat.completions.create(
+                    **kwargs
+                )
+
+                # --------------------------------------------------
+                # Actual API cost settlement
+                # --------------------------------------------------
+                if self.budget is not None:
+                    if response.usage is None:
+                        raise ModelUnavailableError(
+                            "OpenAI returned no usage information. "
+                            "The budget reservation is retained."
+                        )
+
+                    actual_cost = calculate_token_cost(
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        input_price_per_mtok=PRICE_PER_MTOK_INPUT,
+                        output_price_per_mtok=PRICE_PER_MTOK_OUTPUT,
+                    )
+
+                    self.budget.settle(
+                        reserved_cost_usd=estimated_cost,
+                        actual_cost_usd=actual_cost,
+                    )
+
+                return response
 
             except openai.BadRequestError as exc:
-                if not self._skip_response_format and "response_format" in str(exc).lower():
-                    # Retry once without it; remember the choice for future calls.
+                if (
+                    not self._skip_response_format
+                    and "response_format" in str(exc).lower()
+                ):
+                    # Retry without response_format.
                     self._skip_response_format = True
                     continue
+
                 raise ModelUnavailableError(
-                    "OpenAI rejected the request. Check your inputs."
+                    "OpenAI rejected the request. "
+                    "Check your inputs."
                 ) from exc
 
             except openai.AuthenticationError as exc:
-                # Never retry auth errors; never include the key in the message.
+                # Never retry authentication errors.
                 raise ModelUnavailableError(
-                    "OpenAI authentication failed. Check your OPENAI_API_KEY."
+                    "OpenAI authentication failed. "
+                    "Check your OPENAI_API_KEY."
                 ) from exc
 
             except openai.RateLimitError as exc:
-                # Quota / billing errors are non-retryable.
+                # Quota and billing errors are non-retryable.
                 err_code = getattr(exc, "code", None) or ""
                 err_body = str(exc).lower()
-                if err_code == "insufficient_quota" or any(
-                    kw in err_body
-                    for kw in ("insufficient_quota", "credits", "quota", "billing")
+
+                if (
+                    err_code == "insufficient_quota"
+                    or any(
+                        keyword in err_body
+                        for keyword in (
+                            "insufficient_quota",
+                            "credits",
+                            "quota",
+                            "billing",
+                        )
+                    )
                 ):
                     raise ModelUnavailableError(
                         "OpenAI account has no credits or quota left. "
-                        "Add credits in the OpenAI billing settings, then try again."
+                        "Add credits in the OpenAI billing settings, "
+                        "then try again."
                     ) from exc
+
                 if attempt < MAX_RETRIES_PER_TOOL:
-                    _sleep(delays[min(attempt, len(delays) - 1)])
+                    _sleep(
+                        delays[
+                            min(attempt, len(delays) - 1)
+                        ]
+                    )
                     continue
+
                 raise ModelUnavailableError(
                     "OpenAI API unavailable after retries. "
                     "Check your connection and rate limits."
@@ -149,14 +262,21 @@ class OpenAIModel:
                 openai.InternalServerError,
             ) as exc:
                 if attempt < MAX_RETRIES_PER_TOOL:
-                    _sleep(delays[min(attempt, len(delays) - 1)])
+                    _sleep(
+                        delays[
+                            min(attempt, len(delays) - 1)
+                        ]
+                    )
                     continue
+
                 raise ModelUnavailableError(
                     "OpenAI API unavailable after retries. "
                     "Check your connection and rate limits."
                 ) from exc
 
-        raise ModelUnavailableError("OpenAI API unavailable after retries.")
+        raise ModelUnavailableError(
+            "OpenAI API unavailable after retries."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -166,14 +286,25 @@ class OpenAIModel:
 def _format_tools(tools: list[dict]) -> str:
     """Format tool schemas into a plain-text description."""
     lines = []
+
     for tool in tools:
         name = tool.get("name", "")
         desc = tool.get("description", "")
-        # Accept both {"parameters": {...}} and {"input_schema": {...}}
-        params = tool.get("input_schema") or tool.get("parameters") or {}
+
+        # Accept both supported schema formats.
+        params = (
+            tool.get("input_schema")
+            or tool.get("parameters")
+            or {}
+        )
+
         lines.append(f"- {name}: {desc}")
+
         if params:
-            lines.append(f"  parameters: {json.dumps(params)}")
+            lines.append(
+                f"  parameters: {json.dumps(params)}"
+            )
+
     return "\n".join(lines)
 
 
@@ -182,16 +313,12 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
     Convert loop messages to Chat Completions API format.
 
     Loop roles:
-        system    -> excluded here; the caller adds the system prompt as the first message
+        system    -> excluded
         assistant -> assistant
         user      -> user
-        tool      -> user (the untrusted wrapper is already applied by loop.py)
+        tool      -> user
 
-    Consecutive messages with the same role are merged into one.
-
-    Both OpenAI and Anthropic require the first non-system message to be from the
-    user.  If the resulting list is empty or starts with an assistant message, a
-    synthetic user message ("Start the task.") is prepended.
+    Consecutive messages with the same role are merged.
     """
     api_messages = []
 
@@ -199,60 +326,93 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
         role = msg.get("role")
 
         if role == "system":
-            continue  # absorbed into the caller's system prompt
+            continue
 
         if role == "assistant":
             api_role = "assistant"
             content = msg.get("content", "")
+
         elif role in ("tool", "user"):
             api_role = "user"
             content = msg.get("content", "")
+
         else:
             continue
 
-        if api_messages and api_messages[-1]["role"] == api_role:
-            # Merge consecutive same-role messages.
-            api_messages[-1]["content"] += "\n" + content
+        if (
+            api_messages
+            and api_messages[-1]["role"] == api_role
+        ):
+            api_messages[-1]["content"] += (
+                "\n" + content
+            )
         else:
-            api_messages.append({"role": api_role, "content": content})
+            api_messages.append({
+                "role": api_role,
+                "content": content,
+            })
 
-    if not api_messages or api_messages[0]["role"] != "user":
-        api_messages.insert(0, {"role": "user", "content": "Start the task."})
+    if (
+        not api_messages
+        or api_messages[0]["role"] != "user"
+    ):
+        api_messages.insert(
+            0,
+            {
+                "role": "user",
+                "content": "Start the task.",
+            },
+        )
 
     return api_messages
 
 
-_CODE_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
-_JSON_OBJECT_RE = re.compile(r"\{[\s\S]*\}", re.DOTALL)
+_CODE_FENCE_RE = re.compile(
+    r"```(?:json)?\s*([\s\S]*?)\s*```",
+    re.IGNORECASE,
+)
+
+_JSON_OBJECT_RE = re.compile(
+    r"\{[\s\S]*\}",
+    re.DOTALL,
+)
 
 
 def _parse_response(raw: str) -> dict:
     """
-    Robustly extract a JSON object from the model's raw text reply.
+    Extract a JSON object from the model's raw response.
 
-    Strategy:
-    1. Strip code fences if present.
-    2. Find the first {...} object in the text.
-    3. If JSON parsing fails, return an invalid_response dict.
+    1. Strip code fences.
+    2. Find the JSON object.
+    3. Parse JSON.
+    4. Return invalid_response if parsing fails.
     """
     text = raw.strip()
 
-    # 1. Strip code fences.
     fence_match = _CODE_FENCE_RE.search(text)
     if fence_match:
         text = fence_match.group(1).strip()
 
-    # 2. Extract the first JSON object.
     obj_match = _JSON_OBJECT_RE.search(text)
+
     if not obj_match:
-        return {"type": "invalid_response", "content": raw}
+        return {
+            "type": "invalid_response",
+            "content": raw,
+        }
 
     try:
         parsed = json.loads(obj_match.group())
     except json.JSONDecodeError:
-        return {"type": "invalid_response", "content": raw}
+        return {
+            "type": "invalid_response",
+            "content": raw,
+        }
 
     if not isinstance(parsed, dict):
-        return {"type": "invalid_response", "content": raw}
+        return {
+            "type": "invalid_response",
+            "content": raw,
+        }
 
     return parsed

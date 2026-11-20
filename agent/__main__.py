@@ -2,7 +2,8 @@
 """
 Entry point: python -m agent
 
-Extends cli.py's argument parser additively with --job-url, --request, and --model.
+Extends cli.py's argument parser additively with
+--job-url, --request, and --model.
 """
 
 import os
@@ -14,6 +15,7 @@ from agent.logger import AgentLogger
 from agent.loop import AgentLoop
 from agent.model import ModelUnavailableError
 from agent.sites import own_job_url
+from agent.budget import BudgetTracker
 
 
 FAKE_WALKTHROUGH_RESPONSES = [
@@ -34,7 +36,10 @@ FAKE_WALKTHROUGH_RESPONSES = [
         "tool_name": "match_skills",
         "arguments": {
             "cv_text": "Python, SQL",
-            "job": {"title": "Junior AI Engineer", "requirements": ["Python"]},
+            "job": {
+                "title": "Junior AI Engineer",
+                "requirements": ["Python"],
+            },
         },
         "usage": {"input_tokens": 10, "output_tokens": 5},
     },
@@ -83,7 +88,10 @@ SEARCH_THEN_TAILOR_RESPONSES = [
     {
         "type": "tool_call",
         "tool_name": "find_jobs",
-        "arguments": {"query": "python engineer", "site": "tanitjobs"},
+        "arguments": {
+            "query": "python engineer",
+            "site": "tanitjobs",
+        },
         "usage": {"input_tokens": 10, "output_tokens": 5},
     },
     {
@@ -103,7 +111,10 @@ SEARCH_THEN_TAILOR_RESPONSES = [
         "tool_name": "match_skills",
         "arguments": {
             "cv_text": "Python, SQL",
-            "job": {"title": "Junior AI Engineer", "requirements": ["Python"]},
+            "job": {
+                "title": "Junior AI Engineer",
+                "requirements": ["Python"],
+            },
         },
         "usage": {"input_tokens": 10, "output_tokens": 5},
     },
@@ -121,7 +132,10 @@ SEARCH_THEN_TAILOR_RESPONSES = [
         "type": "tool_call",
         "tool_name": "save_tailored_cv",
         "arguments": {
-            "text": "Dear Hiring Manager, I am excited to apply after finding the posting via search.",
+            "text": (
+                "Dear Hiring Manager, I am excited to apply "
+                "after finding the posting via search."
+            ),
             "job_id": "job_001",
             "kind": "cover_letter",
         },
@@ -149,28 +163,33 @@ SEARCH_THEN_TAILOR_RESPONSES = [
 
 
 def _load_dotenv():
-    """Read KEY=VALUE pairs from .env in cwd and set missing env vars.
-
-    Ignores blank lines and lines starting with '#'.  Strips surrounding
-    quotes from values.  Never overrides an already-set variable.
-    Never prints values.
-    """
+    """Load missing environment variables from .env in the current directory."""
     env_path = os.path.join(os.getcwd(), ".env")
+
     if not os.path.isfile(env_path):
         return
+
     with open(env_path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
+
             if not line or line.startswith("#"):
                 continue
+
             if "=" not in line:
                 continue
+
             key, _, value = line.partition("=")
             key = key.strip()
             value = value.strip()
-            # Strip surrounding single or double quotes.
-            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+
+            if (
+                len(value) >= 2
+                and value[0] == value[-1]
+                and value[0] in ('"', "'")
+            ):
                 value = value[1:-1]
+
             if key:
                 os.environ.setdefault(key, value)
 
@@ -210,23 +229,46 @@ def main(argv=None):
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    # Validate scripted_decisions the same way cli.py does.
+    # Validate scripted decisions.
     if args.scripted_decisions is not None:
         if args.auto_approve or args.auto_reject:
             parser.error(
                 "--scripted-decisions cannot be combined with "
                 "--auto-approve or --auto-reject."
             )
-        values = [v.strip().lower() for v in args.scripted_decisions.split(",")]
-        if not values or any(v not in ("yes", "y", "no", "n") for v in values):
-            parser.error("Scripted decisions must contain only yes or no.")
-        args.scripted_decisions = [v in ("yes", "y") for v in values]
 
+        values = [
+            v.strip().lower()
+            for v in args.scripted_decisions.split(",")
+        ]
+
+        if not values or any(
+            v not in ("yes", "y", "no", "n")
+            for v in values
+        ):
+            parser.error(
+                "Scripted decisions must contain only yes or no."
+            )
+
+        args.scripted_decisions = [
+            v in ("yes", "y")
+            for v in values
+        ]
+
+    # Select model backend.
     if args.model == "fake":
         model = FakeModel(FAKE_WALKTHROUGH_RESPONSES)
+
     else:
         from agent.model import OpenAIModel
-        model = OpenAIModel()
+
+        # Read the budget after loading .env.
+        budget_limit = float(os.environ.get("API_BUDGET_USD", "0"))
+
+        # Create the budget tracker for OpenAI requests.
+        budget = BudgetTracker(limit_usd=budget_limit)
+
+        model = OpenAIModel(budget=budget)
 
     # Build the initial user message.
     if args.request:
@@ -242,9 +284,22 @@ def main(argv=None):
     checkpoint = create_checkpoint_from_args(args)
     logger = AgentLogger()
 
-    agent = AgentLoop(model=model, logger=logger, checkpoint=checkpoint)
+    agent = AgentLoop(
+        model=model,
+        logger=logger,
+        checkpoint=checkpoint,
+    )
+
     try:
-        result = agent.run(initial_messages=[{"role": "user", "content": user_message}])
+        result = agent.run(
+            initial_messages=[
+                {
+                    "role": "user",
+                    "content": user_message,
+                }
+            ]
+        )
+
     except ModelUnavailableError as exc:
         print(f"Model unavailable: {exc}")
         sys.exit(2)

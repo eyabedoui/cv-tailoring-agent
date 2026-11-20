@@ -23,10 +23,19 @@ No text message in the chat can trigger a submission; that path is tested and bl
 
 **Questions for you.**
 1. Which OpenAI model(s) and API base URL should we target for grading?
-2. Will you supply OPENAI_API_KEY and FIRECRAWL_API_KEY for grading, or should we prepare a
-   replay-mode demo that needs no API keys?
+
+2. We have received an OpenAI API key. Will a FIRECRAWL_API_KEY also be
+   supplied for grading, or should we prepare a replay-mode demo that
+   requires no external API keys?
 3. What is the per-group spending budget for live API calls?
 4. May we publish our static job-posting site on GitHub Pages for the demo?
 
 Best regards,
 Nouha (Person D) on behalf of the group
+
+5. We checked the robots.txt files and Terms of Service for Tanitjobs,
+   Keejob, and We Work Remotely. Public job pages are generally accessible,
+   but we could not confirm explicit permission for automated extraction.
+   Should we use these websites only if we obtain authorization, and
+   otherwise demonstrate the workflow using our own sandbox and saved
+   snapshots?
