@@ -40,3 +40,44 @@ The own site is **not** searchable via `find_jobs`. Applications may only be sub
 2. Set `"host"` to the canonical hostname (without protocol or trailing slash).
 3. Clear `_load_allowlist_cached` LRU cache if running in a long-lived process.
 4. Add tests to `tests/test_sites.py` covering the new host.
+
+##  Terms and Robots Verification
+
+Verification date: 2026-11-20
+
+### Tanitjobs
+
+- Host: www.tanitjobs.com
+- robots.txt: https://www.tanitjobs.com/robots.txt
+- Terms: https://www.tanitjobs.com/terms-of-use/
+- robots.txt findings: Public job pages are generally allowed. Resume, administration, and certain parameterized search URLs are disallowed.
+- Terms findings: Personal, non-commercial viewing is permitted within stated limits. Disruptive activity and unreasonable infrastructure load are prohibited. Automated scraping is not explicitly authorized.
+- Decision: PENDING CLARIFICATION. Do not run live automated scraping until the intended access is confirmed permissible.
+- Restrictions: No login, no resume access, no external submissions, no disallowed search URLs, and no excessive requests.
+
+
+### Keejob
+
+- Host: www.keejob.com
+- Verification date: 2026-11-20
+- robots.txt: https://www.keejob.com/robots.txt
+- Terms: https://www.keejob.com/terms-of-use/
+- robots.txt findings: Public job listings are not generally disallowed. API endpoints, account pages, recruiter areas, application endpoints, and certain query parameters are restricted.
+- Terms findings: Website content and databases are protected by intellectual property laws. Automated scraping is not explicitly authorized or prohibited in the reviewed terms.
+- Decision: PENDING CLARIFICATION before live automated access.
+- Restrictions: No login, no external application submission, no restricted paths, and no bulk extraction.
+- Fallback: emploi.nat.tn if Keejob cannot be used.
+
+
+
+### We Work Remotely
+
+- Host: weworkremotely.com
+- Verification date: 2026-11-20
+- robots.txt: https://weworkremotely.com/robots.txt
+- Terms: https://weworkremotely.com/terms-and-conditions
+- Terms last updated: 2026-10-23
+- robots.txt findings: Public job pages are generally allowed. Administration, account, profile, and company management pages are disallowed, along with specified token-based editing and cancellation URLs.
+- Terms findings: Website materials are protected by intellectual property laws. Users receive a limited, revocable right to access and use materials. Explicit authorization for automated scraping was not identified.
+- Decision: PENDING CLARIFICATION before live automated access.
+- Restrictions: No login, no account access, no external applications, no restricted paths, and no bulk extraction.
