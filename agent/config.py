@@ -34,6 +34,12 @@ CHECKPOINT_TIMEOUT_SECONDS = 120
 PRICE_PER_MTOK_INPUT = 0.0
 PRICE_PER_MTOK_OUTPUT = 0.0
 
+# Maximum permitted API spending in USD.
+# Zero means live paid requests are disabled until a budget is approved.
+API_BUDGET_USD = float(os.environ.get("API_BUDGET_USD", "0"))
+
+# Budget enforcement is implemented separately in the API adapters.
+# Do not enable live paid requests until that protection is tested.
 # Max tokens for model responses; 1024 truncated CVs and cover letters in JSON replies.
 MODEL_MAX_TOKENS = 4096
 

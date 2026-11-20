@@ -17,7 +17,7 @@ import uuid
 
 from datetime import datetime, timezone
 from pathlib import Path
-
+from agent.costs import calculate_token_cost
 
 SENSITIVE_KEY_PATTERN = re.compile(
     r"api[_-]?key|password|secret|authorization|"
@@ -102,9 +102,11 @@ class AgentLogger:
         self._total_tokens_out += tokens_out
 
         from agent.config import PRICE_PER_MTOK_INPUT, PRICE_PER_MTOK_OUTPUT
-        cost_usd = (
-            tokens_in / 1_000_000 * PRICE_PER_MTOK_INPUT
-            + tokens_out / 1_000_000 * PRICE_PER_MTOK_OUTPUT
+        cost_usd = calculate_token_cost(
+            input_tokens=tokens_in,
+            output_tokens=tokens_out,
+            input_price_per_mtok=PRICE_PER_MTOK_INPUT,
+            output_price_per_mtok=PRICE_PER_MTOK_OUTPUT,
         )
 
         event = {
@@ -160,9 +162,11 @@ class AgentLogger:
 
         total_tokens_in = self._total_tokens_in + tokens_in
         total_tokens_out = self._total_tokens_out + tokens_out
-        total_cost_usd = (
-            total_tokens_in / 1_000_000 * PRICE_PER_MTOK_INPUT
-            + total_tokens_out / 1_000_000 * PRICE_PER_MTOK_OUTPUT
+        total_cost_usd = calculate_token_cost(
+            input_tokens=total_tokens_in,
+            output_tokens=total_tokens_out,
+            input_price_per_mtok=PRICE_PER_MTOK_INPUT,
+            output_price_per_mtok=PRICE_PER_MTOK_OUTPUT,
         )
 
         event = {

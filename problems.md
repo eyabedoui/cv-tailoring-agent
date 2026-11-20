@@ -326,3 +326,33 @@ into a synthetic submit step.
 - **Cause**: The loop was designed for single-run CLI use; no session abstraction existed; `HumanApprovalCheckpoint` only worked interactively; `run()` returned no state; no `on_step` hook.
 - **Fix**: Added `Session` (multi-turn, history trimming, session step cap, `ModelUnavailableError` handling), `ChatCheckpoint` (queue-based, `submit_decision(bool)`, thread-safe), `on_step` callback to `AgentLoop`, `state` carry-over via `run(state=)` and `"state"` key on all 8 return paths, `MAX_STEPS_PER_SESSION` and `MAX_HISTORY_MESSAGES` config constants.
 - **Test**: `tests/test_loop_state.py`, `tests/test_session.py`, `tests/test_chat_checkpoint.py`.
+
+---
+
+## 2026-11-20 — Week 2: Pending professor approvals (A-0b)
+
+- **Status**: WAITING — professor confirmation required.
+- **Owner**: Person A.
+- **Context**: The team is preparing live API integration and a public
+  demonstration of the CV-tailoring agent.
+
+### Questions awaiting confirmation
+
+1. Which OpenAI model(s) and API base URL should be used for grading?
+2. Will a Firecrawl API key be supplied for grading, or should the
+   demonstration support replay mode without external API keys?
+3. What is the approved spending budget for live API calls?
+4. Is publishing our static job-posting sandbox on GitHub Pages allowed?
+5. Should automated access to Tanitjobs, Keejob, and We Work Remotely
+   require explicit authorization, with sandbox/snapshot demonstrations
+   used until permission is confirmed?
+
+### Current decisions
+
+- OpenAI API key: Received; stored locally, never committed.
+- External website automation: Pending clarification.
+- Live API spending cap: Pending confirmation.
+- GitHub Pages publication: Pending confirmation.
+- Submission target: Our own sandbox only.
+- Professor response: WAITING.
+- Approval email: NOT YET SENT.
