@@ -3,7 +3,8 @@ Sandbox management commands.
 
     python -m sandbox setup                      – create sandbox dirs + install Playwright Chromium
     python -m sandbox setup-web                  – alias for setup (Chromium install step only)
-    python -m sandbox seed                       – populate sandbox/postings/ with 25 postings
+    python -m sandbox seed                       – populate sandbox/postings/ with 25 + injection postings
+    python -m sandbox seed-injection             – copy injection postings (job_901+) into sandbox/postings/
     python -m sandbox reset                      – delete state and output files (keep postings)
     python -m sandbox run                        – run the agent against job_001 with fake model
     python -m sandbox serve [--port N]           – start the Flask apply site
@@ -12,10 +13,11 @@ Sandbox management commands.
     python -m sandbox snapshot <url>             – fetch URL with Firecrawl, save snapshot
     python -m sandbox smoke-web                  – MANUAL: integration smoke test (requires live keys)
 
-Calling seed() implies setup().
+setup() = create_dirs() + setup_web(); seed() = create_dirs() + postings + injection (no Playwright).
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -24,19 +26,29 @@ from pathlib import Path
 _BASE = Path(__file__).parent
 
 
-def setup() -> None:
-    """Create sandbox directory structure and install Playwright Chromium (idempotent)."""
+def create_dirs() -> None:
+    """Create sandbox directory structure (no subprocess, no side effects beyond folders)."""
     for sub in ("postings", "output", "state", "snapshots"):
         (_BASE / sub).mkdir(parents=True, exist_ok=True)
     print(f"Sandbox directories created under {_BASE}")
+
+
+def setup() -> None:
+    """Create sandbox directory structure and install Playwright Chromium (idempotent).
+
+    Only call from the CLI (python -m sandbox setup).  Internal functions and
+    the eval runner use create_dirs() instead so they never spawn Playwright.
+    """
+    create_dirs()
     setup_web()
 
 
 def seed() -> None:
-    """Seed sandbox/postings/ with 25 deterministic fictional job postings."""
-    setup()
+    """Seed sandbox/postings/ with 25 fictional job postings plus all injection postings."""
+    create_dirs()
     from sandbox.seed import seed as _seed
     _seed(postings_dir=_BASE / "postings")
+    seed_injection()
 
 
 def seed_injection(injection_dir: str | None = None, postings_dir: str | None = None) -> None:
@@ -347,7 +359,7 @@ def smoke_web() -> None:
         print(f"{check:<{col_w}} {detail[:50]:<50} {status}")
 
     # Usage log totals
-    log_path = _BASE / "usage_log.jsonl"
+    log_path = Path(os.environ.get("CV_AGENT_LOG_DIR", "logs")) / "tool_usage.jsonl"
     if log_path.exists():
         entries = [_json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         by_tool: dict[str, int] = {}
