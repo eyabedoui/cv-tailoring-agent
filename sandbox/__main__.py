@@ -7,7 +7,7 @@ Commands: setup | setup-web | seed | reset | run | serve | export-static | expor
 import argparse
 import sys
 
-from sandbox.manage import export, export_static, reset, run, seed, serve, setup, setup_web, snapshot, smoke_web
+from sandbox.manage import export, export_static, reset, run, seed, seed_injection, serve, setup, setup_web, snapshot, smoke_web
 
 
 def main() -> None:
@@ -17,6 +17,7 @@ def main() -> None:
     sub.add_parser("setup", help="Create sandbox dirs and install Playwright Chromium (idempotent).")
     sub.add_parser("setup-web", help="Alias for setup — installs Playwright Chromium.")
     sub.add_parser("seed", help="Populate sandbox/postings/ with 25 job postings.")
+    sub.add_parser("seed-injection", help="Copy injection postings from eval/injection/ into sandbox/postings/.")
     sub.add_parser("reset", help="Clear sandbox output and state (keeps postings).")
 
     run_p = sub.add_parser("run", help="Run the agent with the fake model.")
@@ -73,6 +74,8 @@ def main() -> None:
         setup_web()
     elif args.command == "seed":
         seed()
+    elif args.command == "seed-injection":
+        seed_injection()
     elif args.command == "reset":
         reset()
     elif args.command == "run":

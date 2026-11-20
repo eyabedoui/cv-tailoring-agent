@@ -39,6 +39,41 @@ def seed() -> None:
     _seed(postings_dir=_BASE / "postings")
 
 
+def seed_injection(injection_dir: str | None = None, postings_dir: str | None = None) -> None:
+    """
+    Copy the posting sub-object from each eval/injection/*.json into sandbox/postings/.
+
+    This makes injection scenarios (job_901+) visible to export-static and the Flask site
+    without requiring the eval runner.  Safe to call after seed(); files are overwritten if
+    they already exist.
+
+    injection_dir – directory containing i*.json files (default: eval/injection/ relative to repo root)
+    postings_dir  – destination directory (default: sandbox/postings/)
+    """
+    _root = _BASE.parent
+    _injection_dir = Path(injection_dir) if injection_dir else _root / "eval" / "injection"
+    _postings_dir = Path(postings_dir) if postings_dir else _BASE / "postings"
+    _postings_dir.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for path in sorted(_injection_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if "posting" not in data:
+            continue
+        posting = data["posting"]
+        job_id = posting.get("job_id")
+        if not job_id:
+            continue
+        out_path = _postings_dir / f"{job_id}.json"
+        out_path.write_text(json.dumps(posting, ensure_ascii=False, indent=2), encoding="utf-8")
+        count += 1
+
+    print(f"Seeded {count} injection posting(s) into {_postings_dir}")
+
+
 def reset() -> None:
     """
     Clear sandbox/output/ and sandbox/state/ contents.
