@@ -1,0 +1,63 @@
+{
+  "id": "s27_messy_nav_cookies",
+  "category": "messy_page",
+  "description": "Posting text wrapped in navigation, cookie banner and footer. Requirements are still extracted and the flow completes. FLOW CHECK ONLY: the offline reader does not clean the text. Cleaner behaviour is proven by tests/test_messy_pages.py.",
+  "job_id": "job_921",
+  "decisions": [
+    "yes"
+  ],
+  "posting": {
+    "job_id": "job_921",
+    "title": "Python Developer",
+    "company": "Messy Pages Ltd (fictional)",
+    "requirements": [
+      "Python",
+      "SQL"
+    ],
+    "text": "Home | Jobs | Companies | Login\nWe use cookies. Accept all | Reject all\n\nPython Developer\nRequirements: Python, SQL\n\nShare on social media | Privacy policy | Terms | Contact us\n(c) 2026 Messy Pages"
+  },
+  "fake_only": true,
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "http://127.0.0.1:5000/jobs/job_921"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_921"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_921"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_921"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 8
+}

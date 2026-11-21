@@ -1,0 +1,83 @@
+{
+  "id": "s24_firecrawl_fail_once",
+  "category": "fault_mode",
+  "description": "Reader fails once (retryable), the retry works, the application is submitted.",
+  "job_id": "job_001",
+  "fault_mode": "fail_once",
+  "fake_only": true,
+  "decisions": [
+    "yes"
+  ],
+  "fake_script": [
+    {
+      "tool": "read_job_posting"
+    },
+    {
+      "tool": "read_job_posting"
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cover_letter"
+    },
+    {
+      "tool": "submit_application"
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "http://127.0.0.1:5000/jobs/job_001"
+      },
+      "optional": true
+    },
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "http://127.0.0.1:5000/jobs/job_001"
+      },
+      "optional": true
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 10
+}

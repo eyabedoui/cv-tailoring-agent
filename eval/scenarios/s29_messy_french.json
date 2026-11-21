@@ -1,0 +1,63 @@
+{
+  "id": "s29_messy_french",
+  "category": "messy_page",
+  "description": "French posting (Tanitjobs style). Requirements are extracted from French text and the flow completes. FLOW CHECK ONLY: the offline reader does not clean the text. Cleaner behaviour is proven by tests/test_messy_pages.py.",
+  "job_id": "job_923",
+  "decisions": [
+    "yes"
+  ],
+  "posting": {
+    "job_id": "job_923",
+    "title": "Développeur Python",
+    "company": "Société Exemple (fictional)",
+    "requirements": [
+      "Python",
+      "SQL"
+    ],
+    "text": "Développeur Python\nProfil recherché : maîtrise de Python et de SQL, esprit d'équipe.\nContrat : CDI. Lieu : Tunis."
+  },
+  "fake_only": true,
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "http://127.0.0.1:5000/jobs/job_923"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_923"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_923"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_923"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": true,
+  "max_steps_allowed": 8
+}
