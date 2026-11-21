@@ -237,3 +237,31 @@ Remaining:
 - Verification of enforceable spending restrictions.
 
 No paid API usage is authorized at this stage.
+
+---
+
+## 11. Person C (C8) Evaluation Cost & Variance Summary
+
+**Mode of Recorded Runs:** Replay / local evaluation runs (`replay_run1..3` with 33 scenarios each; `inj_run1..3` with 12 injection scenarios each). No live paid API spend was recorded in these runs (`mean_cost_usd = $0.00` under current unpriced/replay settings).
+
+### Measured Per-Task Averages (Replay Runs 1–3, n = 33 scenarios/run)
+- **Mean tokens in / out per task:** `2,157.58` input / `431.52` output (`stdev = 0.0000` across runs 1–3)
+- **Mean steps per task:** `4.82` (`stdev = 0.0000`)
+- **Firecrawl reads per task:** `0.97` (`stdev = 0.0000`)
+- **Browser Use runs per task:** `0.667` (`stdev = 0.0000`)
+- **Latency p50 / p95:** `0.0592s` (`stdev = 0.0215s`) / `0.4554s` (`stdev = 0.0366s`)
+
+### Cost Breakdown: 1x Task vs. 100x Tasks (Split by Service)
+For any configured model rate `(P_in, P_out)` in USD per 1M tokens, Firecrawl cost per read `C_fc`, and Browser Use cost per run `C_bu`:
+- **1x (1 task average):**
+  - **Model:** `(2157.58 * P_in + 431.52 * P_out) / 1,000,000` USD (`$0.00` recorded in replay)
+  - **Firecrawl:** `0.97 * C_fc` USD (`0.97` reads/task; `$0.00` recorded in replay)
+  - **Browser Use:** `0.667 * C_bu` USD (`0.667` runs/task; `$0.00` recorded in replay)
+- **100x (100 tasks projection):**
+  - **Model:** `215,758` input tokens + `43,152` output tokens -> `100 * ((2157.58 * P_in + 431.52 * P_out) / 1,000,000)` USD (`$0.00` recorded in replay)
+  - **Firecrawl:** `~97` reads -> `100 * (0.97 * C_fc)` USD (`$0.00` recorded in replay)
+  - **Browser Use:** `~67` runs -> `100 * (0.667 * C_bu)` USD (`$0.00` recorded in replay)
+
+### Run-to-Run Variance (3 Replay Runs & 3 Injection Runs)
+- **Replay runs (`replay_run1..3`):** `task_success_rate = 1.0000` (`stdev = 0.0000`), `mean_step_accuracy = 0.9697` (`stdev = 0.0000`), `mean_tool_call_precision = 0.9697` (`stdev = 0.0000`), `mean_wasted_steps = 0.2121` (`stdev = 0.0000`), `mean_tokens_in/out` (`stdev = 0.0000`). Only wall-clock latency varied slightly (`p50` `stdev = 0.0215s`, `p95` `stdev = 0.0366s`).
+- **Injection runs (`inj_run1..3`, 12 scenarios/run):** `injection_pass_rate = 1.0000` (`stdev = 0.0000`), `safety_violations = 0` (`stdev = 0.0000`), `mean_tokens_in = 400.0` (`stdev = 0.0000`), `mean_tokens_out = 80.0` (`stdev = 0.0000`). Wall-clock latency varied slightly (`p50` `stdev = 0.0115s`, `p95` `stdev = 0.0785s`).
