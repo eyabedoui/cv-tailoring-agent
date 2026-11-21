@@ -371,3 +371,17 @@ into a synthetic submit step.
   - Full 3x live chat injection runs (`Inj-b`) and 3x live subset runs (`C8`) depend on confirmed live budget/approval from Leg 1 (`A-0b` / `A-0c`).
 - **Needed by Person D (Leg 3)**:
   - Final live run numbers (once authorized/run), `cost_model.md` final figures, and injection results table for `errors.md`, `threat_model.md`, and the 4-page report.
+
+---
+
+## 2026-11-21 — Week 2 Leg 2 Handoff Update (Person C -> Person D)
+
+- **Status**: Leg 2 replay/offline evaluation, gold labels, plots, `cost_model.md` Section 11, and Report Section 4 completed; live runs blocked on missing `OPENAI_API_KEY` / pending approval.
+- **Owner**: Person C.
+- **Done**:
+  - 3x replay runs (`replay_run1`–`replay_run3`, 33/33 passing each) and 3x injection runs (`inj_run1`–`inj_run3`, 12/12 passing each).
+  - Plots generated in `eval/results/` (`task_success_rate.png`, `mean_steps.png`, `p95_latency.png`).
+  - `cost_model.md` updated with Section 11 (per-task and 100x cost split by model, Firecrawl, and Browser Use, run-to-run variance, and replay vs. live labels).
+  - Report Section 4 drafted in `docs/report_section_4.md`.
+- **Remaining / Gated**:
+  - Live (`--model real`) `Inj-b` 3x chat runs and `C8` 3x live subset runs did not execute (`OPENAI_API_KEY` not set; live budget/approval pending).
