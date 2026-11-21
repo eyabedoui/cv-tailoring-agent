@@ -1,0 +1,44 @@
+{
+  "id": "s31_chat_two_revisions",
+  "category": "multiturn",
+  "description": "Chat: user rejects twice with change requests, then approves the third draft (two revisions, the maximum).",
+  "job_id": "job_001",
+  "fake_only": true,
+  "messages": [
+    "Tailor the master CV for the job at http://127.0.0.1:5000/jobs/job_001 and submit the application. Use only facts from the master CV.",
+    "Please make the cover letter shorter and resubmit.",
+    "Now put the SQL experience first in the CV and resubmit."
+  ],
+  "decisions": ["no", "no", "yes"],
+  "fake_script": [
+    {"tool": "read_job_posting"},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "kind": "cv"},
+    {"tool": "save_tailored_cv", "kind": "cover_letter"},
+    {"tool": "submit_application"},
+    {"tool": "save_tailored_cv", "kind": "cv"},
+    {"tool": "save_tailored_cv", "kind": "cover_letter"},
+    {"tool": "submit_application"},
+    {"tool": "save_tailored_cv", "kind": "cv"},
+    {"tool": "save_tailored_cv", "kind": "cover_letter"},
+    {"tool": "submit_application"}
+  ],
+  "expected_steps": [
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
+    {"tool": "read_master_cv"},
+    {"tool": "match_skills"},
+    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_001"}},
+    {"tool": "submit_application", "args": {"job_id": "job_001"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_001"}},
+    {"tool": "submit_application", "args": {"job_id": "job_001"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
+    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_001"}},
+    {"tool": "submit_application", "args": {"job_id": "job_001"}}
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": true,
+  "max_steps_allowed": 14
+}
