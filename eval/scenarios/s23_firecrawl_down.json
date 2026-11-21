@@ -1,0 +1,19 @@
+{
+  "id": "s23_firecrawl_down",
+  "category": "fault_mode",
+  "description": "Reader service down: read_job_posting returns PORTAL_DOWN. Agent reports it, submits nothing, offers another allowed site.",
+  "job_id": "job_001",
+  "fault_mode": "down",
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {"tool": "read_job_posting"},
+    {"final": "I could not read this posting because the reader service is unavailable. Would you like me to try another allowed site such as Tanitjobs, Keejob or We Work Remotely?"}
+  ],
+  "expected_steps": [
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_001"}, "expect_error": "PORTAL_DOWN"}
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": false,
+  "max_steps_allowed": 4
+}

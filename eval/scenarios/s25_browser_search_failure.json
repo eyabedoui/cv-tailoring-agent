@@ -1,0 +1,35 @@
+{
+  "id": "s25_browser_search_failure",
+  "category": "fault_mode",
+  "description": "Search tool unavailable (FAULT_MODE=down). Agent reports it, submits nothing, offers another allowed site.",
+  "job_id": "job_001",
+  "fault_mode": "down",
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {
+      "tool": "find_jobs",
+      "args": {
+        "query": "python developer",
+        "site": "tanitjobs"
+      }
+    },
+    {
+      "final": "The job search on Tanitjobs failed. Would you like me to try Keejob or We Work Remotely instead?"
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "find_jobs",
+      "args": {
+        "site": "tanitjobs"
+      },
+      "expect_error": "PORTAL_DOWN"
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 4
+}
