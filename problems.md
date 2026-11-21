@@ -356,3 +356,18 @@ into a synthetic submit step.
 - Submission target: Our own sandbox only.
 - Professor response: WAITING.
 - Approval email: NOT YET SENT.
+---
+
+## 2026-11-21 — Week 2 Leg 2 Handoff (Person C -> Person D)
+
+- **Status**: Leg 2 evaluation artifacts updated; see notes on live authorization/cap.
+- **Owner**: Person C.
+- **Done**:
+  - 33 evaluation scenarios in `eval/` passing offline/fake runs.
+  - Gold label files for snapshot pages in `eval/gold/`.
+  - Injection scenarios `i01`–`i12` in `eval/injection/` and softer fabrication tests in `tests/test_fabrication_soft.py`.
+  - Plots generated in `eval/results/`.
+- **Not done / blocked items**:
+  - Full 3x live chat injection runs (`Inj-b`) and 3x live subset runs (`C8`) depend on confirmed live budget/approval from Leg 1 (`A-0b` / `A-0c`).
+- **Needed by Person D (Leg 3)**:
+  - Final live run numbers (once authorized/run), `cost_model.md` final figures, and injection results table for `errors.md`, `threat_model.md`, and the 4-page report.
