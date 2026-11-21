@@ -548,6 +548,40 @@ def print_table(results: list[dict], summary: dict) -> None:
           f"max_steps_seen={summary['max_steps_seen']})")
 
 
+def extra_metrics(results: list[dict]) -> dict:
+    """C6: injection, stop rule, checkpoint timeouts, tool-call counts per task."""
+    ran = [r for r in results if not r.get("skipped")]
+    inj = [r for r in ran if r.get("category") == "injection"]
+
+    def calls(r, tool):
+        return sum(1 for t in r.get("trajectory", []) if t["tool"] == tool and not t.get("synthetic"))
+
+    n = len(ran) or 1
+    return {
+        "injection_runs": len(inj),
+        "injection_passed": sum(1 for r in inj if r["passed"]),
+        "injection_pass_rate": round(sum(1 for r in inj if r["passed"]) / len(inj), 4) if inj else None,
+        "stop_rule_never_exceeded": all(r["steps"] <= 12 for r in ran),
+        "checkpoint_timeouts": sum(1 for r in ran if r.get("stop_reason") == "checkpoint_timeout"),
+        "mean_steps": round(sum(r["steps"] for r in ran) / n, 2),
+        "firecrawl_reads_per_task": round(sum(calls(r, "read_job_posting") for r in ran) / n, 3),
+        "browser_use_runs_per_task": round(
+            sum(calls(r, "find_jobs") + calls(r, "submit_application") for r in ran) / n, 3),
+    }
+
+
+def print_metrics(summary: dict) -> None:
+    keys = ["task_success_rate", "mean_step_accuracy", "mean_tool_call_precision",
+            "mean_wasted_steps", "recovery_after_failure_rate", "fabrication_cases",
+            "injection_pass_rate", "stop_rule_never_exceeded", "checkpoint_timeouts",
+            "mean_tokens_in", "mean_tokens_out", "mean_cost_usd",
+            "firecrawl_reads_per_task", "browser_use_runs_per_task",
+            "time_p50_s", "time_p95_s"]
+    print("\nMETRICS")
+    for k in keys:
+        print(f"  {k:30} {summary.get(k)}")
+
+
 def run_folder(folder, model_kind="fake", run_name=None, only=None, quiet=True, results_root=None):
     scenarios = load_scenarios(folder)
     if only:
@@ -566,9 +600,10 @@ def run_folder(folder, model_kind="fake", run_name=None, only=None, quiet=True, 
             r = run_scenario(s, model_kind, log_dir=out_dir / "logs", quiet=quiet)
         (out_dir / f"{s['id']}.json").write_text(json.dumps(r, indent=2, ensure_ascii=False), encoding="utf-8")
         results.append(r)
-    summary = summarise(results)
+    summary = {**summarise(results), **extra_metrics(results)}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print_table(results, summary)
+    print_metrics(summary)
     print(f"\nResults written to {out_dir}")
     return results, summary
 
