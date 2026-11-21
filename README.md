@@ -1,409 +1,313 @@
+
+<div align="center">
+
 # CV Tailoring Agent
 
-**CS496 -- AI Engineering \| Project 3: The Operator**
+### CS496 – AI Engineering | Project 3: The Operator
 
-An agentic AI system that helps candidates discover job opportunities,
-analyze job requirements, tailor a CV and cover letter, and prepare an
-application for submission.
+**An agentic AI system for intelligent job discovery, CV tailoring, and human-approved application submission.**
 
-The candidate stays in control throughout the process: **an application
-is submitted only after explicit approval through the chat interface.**
+The candidate remains in control throughout the process. No application is submitted without explicit human approval.
 
-------------------------------------------------------------------------
+</div>
 
-## Project Overview
+---
 
-The agent follows an end-to-end workflow:
+## Overview
 
-1.  **Find jobs** -- searches approved job platforms based on the
-    candidate's request.
-2.  **Read a posting** -- retrieves and parses the selected job
-    description.
-3.  **Tailor documents** -- prepares a job-specific CV and cover letter
-    using the candidate's master CV and the posting requirements.
-4.  **Review** -- presents the generated documents to the candidate.
-5.  **Revise or decide** -- allows the candidate to request changes,
-    reject the application, or approve it.
-6.  **Submit** -- submits the application to the project's own
-    application portal only after the candidate clicks the approval
-    button.
+CV Tailoring Agent is an agentic AI system that automates the job application preparation process.
 
-The chat supports multiple turns and keeps the session state between
-messages. A candidate can request up to two revisions. Typing "yes" does
-not count as approval.
+It searches for relevant job opportunities, analyzes job descriptions, tailors a candidate's CV and cover letter, and prepares applications for submission.
+
+The system follows a human-in-the-loop approach: candidates can review, revise, reject, or explicitly approve an application before submission.
+
+## Key Features
+
+- **Job Discovery:** Searches approved job platforms based on candidate requirements.
+- **Job Analysis:** Retrieves and extracts relevant requirements from job descriptions.
+- **CV Tailoring:** Generates job-specific CVs using the candidate's master CV.
+- **Cover Letter Generation:** Creates personalized cover letters aligned with job requirements.
+- **Human Approval:** Requires an explicit approval button before submission.
+- **Multi-turn Interaction:** Maintains conversation history and session state.
+- **Revision Support:** Allows up to two revisions before the final decision.
+- **Security:** Implements domain restrictions, prompt-injection defenses, and controlled browser automation.
+- **Evaluation:** Measures task success, reliability, safety, token usage, and execution time.
+
+---
 
 ## Supported Job Platforms
 
-The agent searches and reads job postings from three approved external
-platforms:
+The agent searches and reads job postings from three approved external platforms.
 
-  ---------------------------------------------------------------------------------------------------
-  Platform                Website                                             Job market
-  ----------------------- --------------------------------------------------- -----------------------
-  Tanitjobs               [tanitjobs.com](https://www.tanitjobs.com/)         Tunisian jobs, mostly
-                                                                              French
+| Platform | Job Market |
+|---|---|
+| [Tanitjobs](https://www.tanitjobs.com/) | Tunisian jobs, mostly French |
+| [Keejob](https://www.keejob.com/) | Tunisian jobs in French and English |
+| [We Work Remotely](https://weworkremotely.com/) | Remote jobs, mainly English |
 
-  Keejob                  [keejob.com](https://www.keejob.com/)               Tunisian jobs in French
-                                                                              and English
-
-  We Work Remotely        [weworkremotely.com](https://weworkremotely.com/)   Remote jobs, mainly
-                                                                              English
-  ---------------------------------------------------------------------------------------------------
-
-Keejob has `emploi.nat.tn` as a fallback if automation is blocked or not
-permitted.
-
-**External-site policy:** Real job platforms are read-only. The agent
-does not log in, apply, or crawl these websites. LinkedIn and all other
-unapproved domains are rejected by the domain allowlist.
+**External Website Policy:** External job platforms are read-only. The agent does not log in, submit applications, or crawl unauthorized websites. LinkedIn and other unapproved domains are rejected by the domain allowlist.
 
 ### Internal Application Portal
 
-The project includes its own application portal, built with Flask,
-containing 25 fictional job postings and dedicated prompt-injection test
-postings.
+The project includes an internal application portal built with Flask.
 
-Applications are submitted only to this portal. It is used to test the
-complete application workflow safely.
+It contains:
+- 25 fictional job postings.
+- Dedicated prompt-injection test postings.
+- Application submission and state tracking.
 
-------------------------------------------------------------------------
+All applications are submitted exclusively to this internal portal for safe testing.
+
+---
 
 ## Architecture and Technologies
 
-  -----------------------------------------------------------------------
-  Component               Technology              Responsibility
-  ----------------------- ----------------------- -----------------------
-  Agent and orchestration Python                  Manages the agent loop,
-                                                  tools, sessions, and
-                                                  workflow
-
-  Language model          OpenAI API              Interprets requests and
-                                                  coordinates the agent's
-                                                  actions
-
-  Chat interface          Chainlit                Provides the
-                                                  interactive chat and
-                                                  approval checkpoint
-
-  Job search              Browser Use             Searches approved job
-                                                  sites
-
-  Job-page extraction     Firecrawl               Retrieves job-page
-                                                  content
-
-  Job parsing             Python and              Extracts and validates
-                          model-assisted          job requirements
-                          extraction              
-
-  Input/output validation Pydantic schemas        Validates tool
-                                                  arguments and results
-
-  Application portal      Flask                   Hosts the internal job
-                                                  and application portal
-
-  Browser automation      Playwright / Chromium   Supports browser-based
-                                                  operations
-
-  Evaluation              Custom Python           Runs scenarios and
-                          evaluation runner       measures agent
-                                                  performance
-  -----------------------------------------------------------------------
+| Component | Technology | Responsibility |
+|---|---|---|
+| Agent and Orchestration | Python | Manages agent execution, tools, sessions, and workflow |
+| Language Model | OpenAI API | Interprets requests and coordinates actions |
+| Chat Interface | Chainlit | Provides interactive chat and approval checkpoints |
+| Job Search | Browser Use | Searches approved job platforms |
+| Job Extraction | Firecrawl | Retrieves job-page content |
+| Job Parsing | Python | Extracts and validates job requirements |
+| Validation | Pydantic | Validates tool arguments and results |
+| Application Portal | Flask | Hosts internal jobs and applications |
+| Browser Automation | Playwright / Chromium | Supports browser-based operations |
+| Evaluation | Custom Python | Measures agent performance |
 
 ### Main Workflow
 
-``` text
-Candidate
-    |
-    v
-Chainlit Chat
-    |
-    v
-Agent Session and Orchestration
-    |
-    +----> Find Jobs (Browser Use)
-    |          |
-    |          v
-    |     Approved Job Sites
-    |
-    +----> Read Job Posting (Firecrawl)
-    |          |
-    |          v
-    |     Parse Requirements
-    |
-    +----> Tailor CV and Cover Letter
-    |
-    v
-Candidate Review
-    |
-    +----> Request Changes (maximum 2 revisions)
-    |
-    +----> Reject ------> Stop; no application record
-    |
-    +----> Approve via Button
-                 |
-                 v
-          Internal Flask Portal
-                 |
-                 v
-          Application Submitted
+```mermaid
+flowchart TD
+    A[Candidate] --> B[Chainlit Chat]
+    B --> C[Agent Session and Orchestration]
+
+    C --> D[Find Jobs - Browser Use]
+    D --> E[Approved Job Platforms]
+
+    C --> F[Read Job Posting - Firecrawl]
+    F --> G[Parse Job Requirements]
+
+    G --> H[Tailor CV and Cover Letter]
+    H --> I[Candidate Review]
+
+    I --> J{Candidate Decision}
+
+    J -->|Request Changes| K[Revise Documents]
+    K --> I
+
+    J -->|Reject| L[Stop - No Submission]
+
+    J -->|Approve via Button| M[Internal Flask Portal]
+    M --> N[Application Submitted]
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Safety and Human Approval
 
-Safety is a core part of the project. Job postings, search results, and
-other external page content are treated as untrusted data because they
-may contain instructions intended to manipulate the agent.
+Safety is a core component of the project. External job postings, search results, and website content are treated as untrusted data.
 
-The system includes the following safeguards:
+The system implements the following safeguards:
 
--   **Explicit human approval:** Only the approval button authorizes
-    submission. A typed message such as "yes" is not sufficient.
--   **Domain allowlist:** Only approved job domains can be accessed.
-    LinkedIn and other unauthorized domains are refused.
--   **Prompt-injection defenses:** Instructions embedded in job pages,
-    search results, company fields, and other external content must not
-    override the agent's instructions.
--   **Untrusted-content handling:** Tool results are wrapped as
-    untrusted data, and closing tags are escaped.
--   **Restricted browser automation:** Browser Use is limited to one
-    host per call, with a fresh profile, fixed task instructions, step
-    limits, and timeouts. No login or downloads are allowed.
--   **Controlled writes:** File writes are restricted to the sandbox, a
-    fixed candidate ID, and the internal application site.
--   **Submission verification:** The portal's saved state is the source
-    of truth, not the browser agent's claim that it submitted
-    successfully.
--   **Duplicate-submission protection:** The application state is
-    checked to prevent repeated submissions.
--   **Execution limits:** The agent has per-turn and session limits,
-    repeat-call detection, and checkpoint timeouts.
--   **Controlled retries:** Only errors marked as retryable are retried.
-    Blocked or unauthorized sites are never retried.
+- **Explicit Human Approval:** Only clicking the approval button authorizes application submission. Typing "yes" is not sufficient.
+- **Domain Allowlist:** Restricts access to approved job platforms.
+- **Prompt-Injection Defense:** Prevents instructions embedded in external content from overriding system instructions.
+- **Untrusted-Content Handling:** Tool results are wrapped as untrusted data, and closing tags are escaped.
+- **Restricted Browser Automation:** Uses fresh browser profiles, fixed task instructions, step limits, and timeouts.
+- **Controlled File Writes:** Restricts file operations to the sandbox and approved application portal.
+- **Submission Verification:** Uses the portal's saved state as the source of truth.
+- **Duplicate Protection:** Prevents repeated application submissions.
+- **Execution Limits:** Implements per-turn and session limits, repeat-call detection, and checkpoint timeouts.
+- **Controlled Retries:** Retries only errors classified as retryable.
 
-------------------------------------------------------------------------
+---
 
 ## Evaluation and Testing
 
-The project includes automated tests and an evaluation runner to assess
-the agent's reliability, safety, and efficiency.
+The project includes automated tests and an evaluation runner to assess reliability, safety, and efficiency.
 
-Evaluation covers:
+### Evaluation Metrics
 
--   Task success and step accuracy.
--   Tool-call precision and wasted steps.
--   Recovery after tool failures.
--   Fabrication detection, including inflated experience levels,
-    invented numbers, changed dates, and merged roles.
--   Parser accuracy against manually labeled job requirements.
--   Prompt-injection resistance.
--   Execution limits and stopping behavior.
--   Token usage, service costs, and execution time, including p50 and
-    p95 latency.
+- Task success and step accuracy.
+- Tool-call precision and wasted steps.
+- Recovery after tool failures.
+- Fabrication detection, including invented experience, numbers, and dates.
+- Job requirement parser accuracy.
+- Prompt-injection resistance.
+- Execution limits and stopping behavior.
+- Token usage and service costs.
+- Execution time, including p50 and p95 latency.
 
-Test scenarios cover successful applications, no matching jobs, invalid
-arguments, unknown tools, empty results, service failures, timeouts,
-blocked sites, repeated calls, duplicate submissions, user rejection,
-revision requests, and prompt-injection attempts.
+### Test Scenarios
+
+Testing covers successful applications, unavailable jobs, invalid arguments, unknown tools, empty results, service failures, timeouts, blocked websites, repeated calls, duplicate submissions, user rejection, revision requests, and prompt-injection attempts.
 
 ### Evaluation Modes
 
-  -----------------------------------------------------------------------
-  Mode                                Description
-  ----------------------------------- -----------------------------------
-  **Offline**                         Uses a fake model and simulated
-                                      tools. Does not require API keys or
-                                      network access.
+| Mode | Description |
+|---|---|
+| **Offline** | Uses a fake model and simulated tools. No API keys or network access required. |
+| **Replay** | Uses saved website snapshots with the real model, without live website access. |
+| **Live** | Uses the real model and approved external services. |
 
-  **Replay**                          Uses saved website snapshots with
-                                      the real model, without live
-                                      website access.
+Replay mode enables reproducible testing without repeatedly accessing external websites.
 
-  **Live**                            Uses the real model and approved
-                                      external services.
-  -----------------------------------------------------------------------
-
-Replay mode makes it possible to reproduce tests using captured pages
-without repeatedly accessing external websites.
-
-------------------------------------------------------------------------
+---
 
 ## Getting Started
 
 ### Requirements
 
--   Python
--   Git
--   API keys for live model and scraping operations
--   Chromium installed through the project setup for browser-based
-    operations
+- Python
+- Git
+- OpenAI API key (for real model operations)
+- Firecrawl API key (for live job-page extraction)
+- Chromium (installed through project setup)
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
-``` bash
+```bash
 git clone <repository-url>
 cd CV-Tailoring-Agent
 ```
 
-### 2. Install dependencies and initialize the sandbox
+### 2. Install Dependencies and Initialize the Sandbox
 
-``` bash
+```bash
 pip install -r requirements.txt
 python -m sandbox setup
 python -m sandbox seed
 ```
 
-The setup command installs the browser requirements. The seed command
-initializes the local sandbox with its fictional job postings.
+The setup command installs the browser requirements. The seed command initializes the sandbox with fictional job postings.
 
-### 3. Configure environment variables
+### 3. Configure Environment Variables
 
-Create a local `.env` file from the example:
+Create a local `.env` file:
 
-``` bash
+```bash
 cp .env.example .env
 ```
 
-Add the required keys:
+Add the required API keys:
 
-``` env
+```env
 OPENAI_API_KEY=your_openai_api_key
 FIRECRAWL_API_KEY=your_firecrawl_api_key
 ```
 
-  Key                   Required for
-  --------------------- -------------------------------------------------
-  `OPENAI_API_KEY`      Real model runs and live Browser Use operations
-  `FIRECRAWL_API_KEY`   Live job-page scraping and snapshot creation
+| Environment Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Real model operations and live Browser Use operations |
+| `FIRECRAWL_API_KEY` | Live job-page scraping and snapshot creation |
 
-Get an OpenAI API key from
-[platform.openai.com](https://platform.openai.com/) and a Firecrawl API
-key from [firecrawl.dev](https://www.firecrawl.dev/).
+API keys can be obtained from:
 
-Keep `.env` local. Never commit API keys, credentials, logs, or real
-personal data.
+- [OpenAI Platform](https://platform.openai.com/)
+- [Firecrawl](https://www.firecrawl.dev/)
 
-### 4. Start the chat
+**Important:** Never commit `.env` files, API keys, credentials, logs, or real personal data.
 
-Run the interactive agent:
+### 4. Start the Agent
 
-``` bash
+Run the interactive chat:
+
+```bash
 python -m agent chat
 ```
 
 For an offline demonstration without API keys:
 
-``` bash
+```bash
 python -m agent --model fake --auto-approve
 ```
 
-Use the help command to see the available options:
+View available commands:
 
-``` bash
+```bash
 python -m agent --help
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Replay Mode
 
-Replay mode runs the agent using previously captured website snapshots.
-It is useful for offline evaluation and reproducible testing.
+Replay mode allows the agent to work with previously captured website snapshots instead of accessing live websites.
 
-Capture a page snapshot (requires a Firecrawl API key):
+### 1. Capture a Job Posting
 
-``` bash
+Requires a Firecrawl API key.
+
+```bash
 python -m sandbox snapshot <job-url>
 ```
 
-Set replay mode:
+### 2. Enable Replay Mode
 
-**Windows Command Prompt**
+**Windows Command Prompt:**
 
-``` bat
+```cmd
 set WEB_MODE=replay
 ```
 
-**macOS / Linux**
+**macOS / Linux:**
 
-``` bash
+```bash
 export WEB_MODE=replay
 ```
 
-Then run the agent against the saved snapshot:
+### 3. Run the Agent
 
-``` bash
+```bash
 python -m agent --job-url <job-url>
 ```
 
-Replay mode uses saved content and does not need live access to the job
-website.
+Replay mode uses saved website content and does not require live access to the job website.
 
-------------------------------------------------------------------------
+---
 
 ## Running Tests and Evaluation
 
 Run the automated test suite:
 
-``` bash
+```bash
 python -m pytest -q
 ```
 
-Run the offline evaluation:
+Run offline evaluation:
 
-``` bash
+```bash
 python -m eval.runner --model fake
 ```
 
 Run the credential scan:
 
-``` bash
+```bash
 python scripts/scan_secrets.py
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Resetting the Sandbox
 
-Clear generated output and state while keeping the job postings:
+Clear generated output and application state while keeping job postings:
 
-``` bash
+```bash
 python -m sandbox reset
 ```
 
-Seed the sandbox again:
+Initialize the sandbox again:
 
-``` bash
+```bash
 python -m sandbox seed
 ```
 
-------------------------------------------------------------------------
-
-## Deployment
-
-The planned deployment uses:
-
--   **Chainlit** for the public chat interface.
--   **Flask** for the internal application portal, running in the same
-    container at `127.0.0.1:5000`.
--   **GitHub Pages** for the exported static job postings, which allow
-    the cloud-based scraper to access postings that would not be
-    reachable on localhost.
-
-The hosted chat must be password-protected. Replay mode is the default
-deployment mode; live mode is enabled only for demonstrations and graded
-runs. API keys are configured through the hosting provider's environment
-settings and must never be committed to the repository.
-
-The public deployment URL and login instructions should be added here
-once deployment is complete.
-
-------------------------------------------------------------------------
+---
 
 ## Project Structure
 
-``` text
+```text
 CV-Tailoring-Agent/
 │
 ├── agent/              # Agent loop, sessions, prompts and chat workflow
@@ -420,69 +324,78 @@ CV-Tailoring-Agent/
 └── problems.md
 ```
 
-*This is a high-level overview; the exact repository structure may
-evolve during development.*
+*This is a high-level overview. The exact repository structure may evolve during development.*
 
-------------------------------------------------------------------------
+---
+
+## Deployment
+
+The planned deployment consists of:
+
+- **Chainlit:** Public chat interface.
+- **Flask:** Internal application portal, running in the same container at `127.0.0.1:5000`.
+- **GitHub Pages:** Hosts exported static job postings for cloud-based scraping.
+
+The hosted chat must be password-protected.
+
+Replay mode is the default deployment mode. Live mode is enabled only for demonstrations and graded runs.
+
+API keys are configured through the hosting provider's environment settings and must never be committed to the repository.
+
+The public deployment URL and login instructions will be added once deployment is complete.
+
+---
 
 ## Project Status
 
-The Week 1 implementation includes:
+### Week 1 Implementation
 
--   End-to-end agent workflow through the chat interface.
--   Session history and state management across turns.
--   Button-based human approval checkpoint.
--   Integration with the three approved job platforms.
--   Internal Flask application portal with 25 fictional postings and
-    prompt-injection test postings.
--   Browser-based job search and application submission to the internal
-    portal.
--   Firecrawl-based job-page extraction and replay snapshots.
--   Offline evaluation framework and initial scenarios.
--   Security controls, domain allowlisting, and error handling.
+- [x] End-to-end agent workflow through the chat interface.
+- [x] Session history and state management.
+- [x] Button-based human approval checkpoint.
+- [x] Integration with three approved job platforms.
+- [x] Internal Flask application portal with 25 fictional postings.
+- [x] Browser-based job search and internal application submission.
+- [x] Firecrawl-based job-page extraction and replay snapshots.
+- [x] Offline evaluation framework and initial scenarios.
+- [x] Security controls, domain allowlisting, and error handling.
 
-**Testing note:** The project plan records 596 offline tests passing at
-the last full run before the additional Week 2 work. The initial offline
-evaluation scenarios also passed. Final live evaluation, deployment, and
-updated results should be reported after those stages are completed.
+**Testing Note:** The project plan records 596 offline tests passing at the last full run before the additional Week 2 work. Initial offline evaluation scenarios also passed. Final live evaluation, deployment, and updated results remain to be reported after completion.
 
-------------------------------------------------------------------------
+---
 
 ## Team Contributions
 
-  -----------------------------------------------------------------------
-  Member                              Responsibilities
-  ----------------------------------- -----------------------------------
-  **Asma Gannar**                     Live setup, reliability, retries,
-                                      execution limits, and optimization
+| Member | Responsibilities |
+|---|---|
+| **Asma Gannar** | Live setup, reliability, retries, execution limits, and optimization |
+| **Eya Bedoui** | Agent core, chat interface, web integration, and sandbox |
+| **Asma Aouiti** | Evaluation metrics, scenarios, cost analysis, and injection testing |
+| **Nouha Aouiti** | Security documentation, deployment, final report, and demonstration |
 
-  **Eya Bedoui**                      Agent core, chat interface, web
-                                      integration, and sandbox
-
-  **Asma Aouiti**                     Evaluation metrics, scenarios, cost
-                                      analysis, and injection testing
-
-  **Nouha Aouiti**                    Security documentation, deployment,
-                                      final report, and demonstration
-  -----------------------------------------------------------------------
-
-------------------------------------------------------------------------
+---
 
 ## Project Documentation
 
-Additional project details are maintained in the `docs/` directory,
-including:
+Additional documentation is available in the `docs/` directory:
 
--   Approved websites and access restrictions.
--   Human approval process.
--   Sandbox and replay instructions.
--   Error taxonomy.
--   Threat model and security considerations.
--   Deployment instructions.
--   Evaluation metrics and cost model.
+- Approved websites and access restrictions.
+- Human approval process.
+- Sandbox and replay instructions.
+- Error taxonomy.
+- Threat model and security considerations.
+- Deployment instructions.
+- Evaluation metrics and cost model.
 
-------------------------------------------------------------------------
+---
 
-**Course:** CS496 -- AI Engineering\
-**Project:** Project 3 -- The Operator\
-**Institution:** South Mediterranean University (SMU)
+<div align="center">
+
+**CS496 – AI Engineering**
+
+Project 3 – The Operator
+
+South Mediterranean University (SMU)
+
+</div>
+
