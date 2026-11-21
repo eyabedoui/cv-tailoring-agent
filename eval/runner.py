@@ -55,7 +55,7 @@ def normalize_scenario(data: dict, source: str = "scenario") -> dict:
     if s["messages"] is not None:
         s["messages"] = list(s["messages"])
     for d in s["decisions"]:
-        if str(d).lower() not in ("yes", "y", "no", "n"):
+        if str(d).lower() not in ("yes", "y", "no", "n", "timeout"):
             raise ValueError(f"{source}: decisions must be yes/no, got {d!r}")
     return s
 
@@ -248,6 +248,16 @@ def _restore_fault(old) -> None:
 def _decisions(s: dict) -> list[bool]:
     ds = [str(d).lower() in ("yes", "y") for d in s["decisions"]]
     return ds + [False] * 3  # never fall back to interactive input
+
+
+def _checkpoint_kwargs(s: dict) -> dict:
+    """A 'timeout' decision uses the real interactive path with an input that answers too late."""
+    if any(str(d).lower() == "timeout" for d in s["decisions"]):
+        def _never_answers(prompt=""):
+            time.sleep(2)
+            return "no"
+        return {"scripted_decisions": None, "input_fn": _never_answers, "timeout_seconds": 0.05}
+    return {"scripted_decisions": _decisions(s)}
 
 
 def task_message(s: dict) -> str:
@@ -448,7 +458,7 @@ def run_scenario(s: dict, model_kind: str = "fake", log_dir=None, quiet: bool = 
         model = build_model(s, model_kind)
         logger = AgentLogger()
         checkpoint = HumanApprovalCheckpoint(auto_approve=False, auto_reject=False,
-                                             scripted_decisions=_decisions(s))
+                                             **_checkpoint_kwargs(s))
         session = Session(model=model, checkpoint=checkpoint, logger=logger)
         user_messages = list(s["messages"]) if s.get("messages") else [task_message(s)]
         sink = io.StringIO() if quiet else sys.stdout
