@@ -1,0 +1,53 @@
+{
+  "id": "s33_checkpoint_timeout",
+  "category": "checkpoint",
+  "description": "The human never answers the checkpoint. Timeout counts as a rejection and nothing is submitted.",
+  "job_id": "job_001",
+  "fake_only": true,
+  "decisions": [
+    "timeout"
+  ],
+  "expected_steps": [
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "http://127.0.0.1:5000/jobs/job_001"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "check_format",
+      "optional": true
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    }
+  ],
+  "expected_stop_reasons": [
+    "checkpoint_timeout"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 8
+}

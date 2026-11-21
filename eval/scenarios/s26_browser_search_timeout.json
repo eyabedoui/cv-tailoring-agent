@@ -1,0 +1,35 @@
+{
+  "id": "s26_browser_search_timeout",
+  "category": "fault_mode",
+  "description": "Search times out (FAULT_MODE=timeout). Agent stops cleanly, submits nothing, tells the candidate.",
+  "job_id": "job_001",
+  "fault_mode": "timeout",
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {
+      "tool": "find_jobs",
+      "args": {
+        "query": "data analyst",
+        "site": "keejob"
+      }
+    },
+    {
+      "final": "The search timed out. Please try again in a moment or choose another allowed site."
+    }
+  ],
+  "expected_steps": [
+    {
+      "tool": "find_jobs",
+      "args": {
+        "site": "keejob"
+      },
+      "expect_error": "TIMEOUT"
+    }
+  ],
+  "expected_stop_reasons": [
+    "done"
+  ],
+  "expect_submitted": false,
+  "max_steps_allowed": 4
+}

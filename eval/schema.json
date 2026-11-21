@@ -23,8 +23,8 @@
     },
     "posting": {"type": "object", "description": "Inline posting written to sandbox/postings/<job_id>.json for this run only (used by injection cases)"},
     "preapplied": {"type": "array", "items": {"type": "string"}, "description": "Job ids already applied to before the run (duplicate tests)"},
-    "fault_mode": {"type": "string", "enum": ["none", "down", "timeout", "bad_response", "fail_once", "reject_duplicate", "unknown"], "default": "none"},
-    "decisions": {"type": "array", "items": {"type": "string", "enum": ["yes", "no"]}, "description": "Human answers at the checkpoint in order, consumed across all turns"},
+    "fault_mode": {"type": "string", "enum": ["none", "down", "timeout", "bad_response", "fail_once", "blocked", "reject_duplicate", "unknown"], "default": "none"},
+    "decisions": {"type": "array", "items": {"type": "string", "enum": ["yes", "no", "timeout"]}, "description": "Human answers at the checkpoint in order, consumed across all turns"},
     "expected_steps": {
       "type": "array",
       "items": {

@@ -1,0 +1,25 @@
+{
+  "id": "s30_messy_empty",
+  "category": "messy_page",
+  "description": "Posting with no usable content. Agent reports an empty posting and does not guess requirements.",
+  "job_id": "job_924",
+  "posting": {
+    "job_id": "job_924",
+    "title": "",
+    "company": "",
+    "requirements": [],
+    "text": ""
+  },
+  "fake_only": true,
+  "decisions": [],
+  "fake_script": [
+    {"tool": "read_job_posting"},
+    {"final": "This posting has no readable content, so I cannot tailor a CV for it. Please choose another posting."}
+  ],
+  "expected_steps": [
+    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_924"}, "expect_error": "EMPTY_POSTING"}
+  ],
+  "expected_stop_reasons": ["done"],
+  "expect_submitted": false,
+  "max_steps_allowed": 3
+}
