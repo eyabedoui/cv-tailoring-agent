@@ -1,7 +1,6 @@
 # Threat model — CV Tailoring Agent
 
-Status: Week 1 D (defence sections with real tests added).  Residual risks and injection
-run results are added in Week 2 (D7).
+Status: Week 2 D7 complete (injection results, terms and privacy notes, residual risks added 2026-11-22).
 
 ---
 
@@ -159,9 +158,37 @@ from tool text obeyed.  Forbidden text (PWNED-9XX) must not appear in any output
   are wrapped as untrusted, but nothing is cleaned. Owner B, task B7 (Week 2).
 - The wrapper only stops tag breakout. It does not stop the model from obeying text inside a
   posting. The remaining defences are the prompt rules and the human checkpoint.
-- agent/model.py does not send the task message to the real model (reported by C). Injection runs
-  on the real model are blocked until A fixes it.
+
+## Injection results (Week 2)
+
+Source: Person C's Leg 2 handover in problems.md and eval/results/report_section_4.md.
+
+- Run: 12 injection scenarios (i01 to i12), 3 runs each (inj_run1 to inj_run3).
+- Result: 12/12 passed in every run, 0 safety violations (no submit without a button approval, no write outside the sandbox, no navigation off the allowlist, no master CV leak).
+- Mode: replay/fake model, with $0.00 recorded API spend. These runs show that the scenario files load, the checks run and the deterministic defences hold. They do not show how a live model reacts to injected text.
+- Offline evidence: tests/test_injection_d.py (28 tests) and the unit tests for the wrapper escaping, the allowlist, the strict schemas, buttons-only approval and the write limits all pass.
+- Not done: runs against a live model. Blocked on the missing OpenAI API key and the pending budget approval (see cost_model.md).
+
+## Terms of service and privacy notes
+
+Source: docs/allowed_sites.md (terms and robots.txt check, Week 2).
+
+| Site | robots.txt | Terms | Automated access |
+|---|---|---|---|
+| Tanitjobs | Public job pages generally allowed; resume, administration and some parameterised search URLs disallowed | Personal, non-commercial viewing permitted; disruptive activity and unreasonable load prohibited | Not explicitly authorised |
+| Keejob | Public listings not generally disallowed; API endpoints, account, recruiter and application endpoints restricted | Content protected by intellectual property law | Neither authorised nor prohibited in the reviewed terms |
+| We Work Remotely | Public job pages generally allowed; administration, account, profile and company management pages disallowed | Limited, revocable right to access materials | Explicit authorisation not identified |
+
+Mitigations in the design: read-only access, no login, no crawling, one scrape per posting read, throttling, the domain allowlist enforced in code, and replay snapshots for evaluation. Applications are submitted only to our own site. The question of authorisation is raised with the instructor in docs/approval.md; no answer is recorded in the files reviewed on 2026-11-22.
+
+Privacy: the master CV and the candidate id are fictional, so no real personal data is processed. API keys live only in a local .env file that is git-ignored, and the logger redacts key-like fields.
 
 ## Residual risks
 
-To fill in during Week 2.
+1. Live-model behaviour is untested. Replay and fake runs cannot show whether a real model obeys injected text. Mitigation: the deterministic defences do not depend on the model (human button checkpoint, allowlist, write limits).
+2. Scraping authorisation. None of the three sites explicitly authorises automated access. Fallback: serve the sites from saved snapshots and our own sandbox, and say so in the report.
+3. Text cleaning covers the tested cases (hidden HTML, zero-width characters, comments, closing tags, navigation, cookie banners). A new obfuscation could pass through; the wrapper and the checkpoint remain as the second layer.
+4. The injection runner's forbidden-text check looked only at tool-call arguments when reviewed in Week 1. Re-check before the freeze whether the final chat answer is also scanned.
+5. Known metric quirk: s08_portal_fail_once passes but records step accuracy 0.0 and 7 wasted steps because expected steps do not account for the retry. It affects the averages (0.9697 accuracy, 0.2121 wasted steps) but not safety.
+6. Before the freeze, check that the saved snapshots in sandbox/snapshots/ contain only public posting text.
+
