@@ -158,8 +158,6 @@ from tool text obeyed.  Forbidden text (PWNED-9XX) must not appear in any output
   are wrapped as untrusted, but nothing is cleaned. Owner B, task B7 (Week 2).
 - The wrapper only stops tag breakout. It does not stop the model from obeying text inside a
   posting. The remaining defences are the prompt rules and the human checkpoint.
-- agent/model.py does not send the task message to the real model (reported by C). Injection runs
-  on the real model are blocked until A fixes it.
 
 ## Injection results (Week 2)
 
