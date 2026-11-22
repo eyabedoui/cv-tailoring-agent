@@ -409,7 +409,6 @@ Additional documentation is available in the `docs/` directory:
 - Human approval process.
 - Sandbox and replay instructions.
 - Error taxonomy.
-- Threat model (`threat_model.md`) and cost model (`cost_model.md`).
 - Threat model and security considerations.
 - Deployment instructions.
 - Evaluation metrics and cost model.
