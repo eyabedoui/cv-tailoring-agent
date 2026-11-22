@@ -37,8 +37,7 @@ docker run --rm -p 7860:7860 \
   -e APP_USERNAME=demo -e APP_PASSWORD=choose-one -e CHAINLIT_AUTH_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))") \
   cv-agent
 ```
-Open http://localhost:7860 and log in. If the Chromium install fails on your machine, build the replay-only image:
-`docker build --build-arg INSTALL_CHROMIUM=0 -t cv-agent .` (Chromium is only needed for live Browser Use runs).
+Open http://localhost:7860 and log in. The image is replay-only: it does not install a browser. Live Browser Use runs (`WEB_MODE=live`) need a browser, and `--build-arg INSTALL_CHROMIUM=1` currently fails because the playwright package is not installed. Fix that before any live deployment.
 
 Without Docker: `ALLOW_NO_AUTH=1 sh start.sh` starts the same two processes.
 
