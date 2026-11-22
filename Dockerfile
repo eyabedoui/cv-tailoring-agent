@@ -3,7 +3,7 @@
 # Replay-only image without Chromium (smaller):  docker build --build-arg INSTALL_CHROMIUM=0 -t cv-agent .
 FROM python:3.12-slim
 
-ARG INSTALL_CHROMIUM=1
+ARG INSTALL_CHROMIUM=0
 
 # Safe defaults: no network to real sites, scripted model, no spend.
 ENV PYTHONUNBUFFERED=1 \
