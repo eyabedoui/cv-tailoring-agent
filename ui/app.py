@@ -21,6 +21,7 @@ from agent.logger import AgentLogger
 from agent.session import Session
 from ui.logic import (
     APPROVAL_PENDING_REPLY,
+    check_credentials,
     format_status_line,
     format_stop_message,
     get_output_files,
@@ -70,6 +71,27 @@ def _fake_model():
     from agent.fake_model import FakeModel
     from agent.__main__ import FAKE_WALKTHROUGH_RESPONSES
     return FakeModel(FAKE_WALKTHROUGH_RESPONSES)
+
+
+# ---------------------------------------------------------------------------
+# Password login (public deployment)
+# Enabled only when APP_USERNAME and APP_PASSWORD are set. Chainlit also needs
+# CHAINLIT_AUTH_SECRET to sign sessions. Credentials come from the host's
+# environment settings and are never stored in the repository.
+# ---------------------------------------------------------------------------
+
+if os.environ.get("APP_USERNAME") and os.environ.get("APP_PASSWORD"):
+
+    @cl.password_auth_callback
+    def auth_callback(username: str, password: str):
+        if check_credentials(
+            username,
+            password,
+            os.environ.get("APP_USERNAME"),
+            os.environ.get("APP_PASSWORD"),
+        ):
+            return cl.User(identifier=username, metadata={"role": "candidate"})
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +247,7 @@ async def on_message(message: cl.Message):
     session._on_step = on_step_fn
 
     # Run session.send in the thread pool so the event loop is never blocked.
-    send_task = asyncio.create_task(
-        loop.run_in_executor(None, session.send, text)
-    )
+    send_task = loop.run_in_executor(None, session.send, text)
 
     # Drain step events while the agent runs.
     while not send_task.done():
