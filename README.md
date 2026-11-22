@@ -193,8 +193,8 @@ cp .env.example .env
 Add the required API keys:
 
 ```env
-OPENAI_API_KEY=your_openai_api_key
-FIRECRAWL_API_KEY=your_firecrawl_api_key
+OPENAI_API_KEY=
+FIRECRAWL_API_KEY=
 ```
 
 | Environment Variable | Purpose |
