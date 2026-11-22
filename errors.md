@@ -57,3 +57,14 @@ The fabrication checker (`eval/fabrication.py`) is not an error code but a post-
 gate.  `check_fabrication(master_cv, tailored)` returns a list of invented items; the eval runner
 fails any scenario where the list is non-empty.  See `tests/test_fabrication.py` and
 `tests/test_fabrication_c.py` for coverage.
+
+---
+
+## Known limits (Week 2)
+
+Source: Person C's Leg 2 handover in problems.md and eval/results/report_section_4.md.
+
+- Test ids in the planning table were checked against tests/ on 2026-11-22.
+- The recorded runs (replay_run1 to replay_run3 and inj_run1 to inj_run3) were local replay/fake runs with $0.00 recorded API spend. They do not include a live model. Live runs are blocked on the missing OpenAI API key and the pending budget approval.
+- s08_portal_fail_once passes (the agent recovers and submits) but records step_accuracy 0.0, tool_call_precision 0.0 and 7 wasted steps, because expected-step matching does not account for the retry. This one scenario explains the averages of 0.9697 step accuracy and 0.2121 wasted steps. It is a scoring limit, not an agent failure.
+- The injection runner looks for forbidden text in tool-call arguments only. A forbidden phrase that appears only in the agent's final chat answer is not detected.
