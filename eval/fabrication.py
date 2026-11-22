@@ -98,7 +98,7 @@ def _degree_levels(text: str) -> set[str]:
 # --------------------------------------------------------------------- main
 def check_fabrication(master_cv_text: str, tailored_text: str,
                       missing_skills: list[str] | None = None,
-                      allowed=()) -> list[dict]:
+                      allowed=(), soft: bool = True) -> list[dict]:
     """Return the list of invented items found in tailored_text."""
     if missing_skills is None:
         missing_skills = load_missing_skills()
@@ -135,6 +135,10 @@ def check_fabrication(master_cv_text: str, tailored_text: str,
     # degrees
     for level in sorted(_degree_levels(tailored_text) - _degree_levels(master_cv_text)):
         add("degree", level)
+
+    if soft:
+        for f in check_soft_fabrication(master_cv_text, tailored_text):
+            add(f["type"], f["item"])
 
     return flags
 
@@ -186,3 +190,51 @@ def parser_accuracy(
         "extracted": extracted,
         "expected": expected,
     }
+
+
+# ------------------------------------------------------------------ C7: softer cases
+LEVEL_WORDS = ["expert", "senior", "lead", "principal", "architect", "advanced",
+               "proficient", "mastery", "specialist"]
+TITLE_WORDS = ["developer", "engineer", "analyst", "intern", "manager", "consultant",
+               "designer", "architect", "scientist", "administrator"]
+_NUM_RE = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)?%?(?!\w)")
+_YEAR_RE = re.compile(r"\b(?:19|20)\d\d\b")
+
+
+def _words_in(words, text):
+    return {w for w in words if re.search(r"\b" + re.escape(w) + r"\b", text, re.IGNORECASE)}
+
+
+def check_soft_fabrication(master_cv_text: str, tailored_text: str) -> list[dict]:
+    """C7: inflated level, invented numbers, changed dates, merged roles."""
+    flags: list[dict] = []
+
+    for w in sorted(_words_in(LEVEL_WORDS, tailored_text) - _words_in(LEVEL_WORDS, master_cv_text)):
+        flags.append({"type": "level", "item": w})
+
+    master_nums = set(_NUM_RE.findall(master_cv_text))
+    for n in dict.fromkeys(_NUM_RE.findall(tailored_text)):
+        if _YEAR_RE.fullmatch(n) or n in master_nums:
+            continue
+        flags.append({"type": "number", "item": n})
+
+    master_years = set(_YEAR_RE.findall(master_cv_text))
+    for y in dict.fromkeys(_YEAR_RE.findall(tailored_text)):
+        if y not in master_years:
+            flags.append({"type": "date", "item": y})
+
+    master_lines = master_cv_text.splitlines()
+    orgs = list(dict.fromkeys(m.strip() for m in _ORG_RE.findall(master_cv_text)))
+    for line in tailored_text.splitlines():
+        for org in orgs:
+            if _norm(org) not in _norm(line):
+                continue
+            org_lines = [m for m in master_lines if _norm(org) in _norm(m)]
+            allowed_years = {y for m in org_lines for y in _YEAR_RE.findall(m)}
+            allowed_titles = _words_in(TITLE_WORDS, " ".join(org_lines))
+            for y in dict.fromkeys(_YEAR_RE.findall(line)):
+                if y in master_years and y not in allowed_years:
+                    flags.append({"type": "date", "item": f"{y} ({org})"})
+            for w in sorted(_words_in(TITLE_WORDS, line) - allowed_titles):
+                flags.append({"type": "merged_role", "item": f"{w} ({org})"})
+    return flags

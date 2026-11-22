@@ -10,35 +10,125 @@
     "Now put the SQL experience first and resubmit.",
     "One more change please: add a skills summary at the top."
   ],
-  "decisions": ["no", "no"],
+  "decisions": [
+    "no",
+    "no"
+  ],
   "fake_script": [
-    {"tool": "read_job_posting"},
-    {"tool": "read_master_cv"},
-    {"tool": "match_skills"},
-    {"tool": "save_tailored_cv", "kind": "cv"},
-    {"tool": "save_tailored_cv", "kind": "cover_letter"},
-    {"tool": "submit_application"},
-    {"tool": "save_tailored_cv", "kind": "cv"},
-    {"tool": "submit_application"},
-    {"tool": "save_tailored_cv", "kind": "cv"},
-    {"tool": "submit_application"},
-    {"tool": "save_tailored_cv", "kind": "cv"},
-    {"final": "I cannot make a third revision, the limit is 2. Nothing was submitted."}
+    {
+      "tool": "read_job_posting"
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cover_letter"
+    },
+    {
+      "tool": "submit_application"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "tool": "submit_application"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "tool": "submit_application"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "kind": "cv"
+    },
+    {
+      "final": "I cannot make a third revision, the limit is 2. Nothing was submitted."
+    }
   ],
   "expected_steps": [
-    {"tool": "read_job_posting", "args": {"url": "http://127.0.0.1:5000/jobs/job_001"}},
-    {"tool": "read_master_cv"},
-    {"tool": "match_skills"},
-    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
-    {"tool": "save_tailored_cv", "args": {"kind": "cover_letter", "job_id": "job_001"}},
-    {"tool": "submit_application", "args": {"job_id": "job_001"}},
-    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
-    {"tool": "submit_application", "args": {"job_id": "job_001"}},
-    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}},
-    {"tool": "submit_application", "args": {"job_id": "job_001"}},
-    {"tool": "save_tailored_cv", "args": {"kind": "cv", "job_id": "job_001"}}
+    {
+      "tool": "read_job_posting",
+      "args": {
+        "url": "http://127.0.0.1:5000/jobs/job_001"
+      }
+    },
+    {
+      "tool": "read_master_cv"
+    },
+    {
+      "tool": "match_skills"
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cover_letter",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "submit_application",
+      "args": {
+        "job_id": "job_001"
+      }
+    },
+    {
+      "tool": "save_tailored_cv",
+      "args": {
+        "kind": "cv",
+        "job_id": "job_001"
+      },
+      "expect_error": "INVALID_ARGUMENTS"
+    }
   ],
-  "expected_stop_reasons": ["done", "user_rejected"],
+  "expected_stop_reasons": [
+    "done",
+    "user_rejected"
+  ],
   "expect_submitted": false,
   "max_steps_allowed": 14
 }

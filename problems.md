@@ -356,3 +356,37 @@ into a synthetic submit step.
 - Submission target: Our own sandbox only.
 - Professor response: WAITING.
 - Approval email: NOT YET SENT.
+---
+
+## 2026-11-21 — Week 2 Leg 2 Handoff (Person C -> Person D)
+
+- **Status**: Leg 2 evaluation artifacts updated; see notes on live authorization/cap.
+- **Owner**: Person C.
+- **Done**:
+  - 33 evaluation scenarios in `eval/` passing offline/fake runs.
+  - Gold label files for snapshot pages in `eval/gold/`.
+  - Injection scenarios `i01`–`i12` in `eval/injection/` and softer fabrication tests in `tests/test_fabrication_soft.py`.
+  - Plots generated in `eval/results/`.
+- **Not done / blocked items**:
+  - Full 3x live chat injection runs (`Inj-b`) and 3x live subset runs (`C8`) depend on confirmed live budget/approval from Leg 1 (`A-0b` / `A-0c`).
+- **Needed by Person D (Leg 3)**:
+  - Final live run numbers (once authorized/run), `cost_model.md` final figures, and injection results table for `errors.md`, `threat_model.md`, and the 4-page report.
+
+---
+
+## 2026-11-21 — Week 2 Leg 2 Handoff Update (Person C -> Person D)
+
+- **Status**: Leg 2 replay/offline evaluation, gold labels, plots, `cost_model.md` Section 11, and Report Section 4 completed; live runs blocked on missing `OPENAI_API_KEY` / pending approval.
+- **Owner**: Person C.
+- **Done**:
+  - 3x replay runs (`replay_run1`–`replay_run3`, 33/33 passing each) and 3x injection runs (`inj_run1`–`inj_run3`, 12/12 passing each).
+  - Plots generated in `eval/results/` (`task_success_rate.png`, `mean_steps.png`, `p95_latency.png`).
+  - `cost_model.md` updated with Section 11 (per-task and 100x cost split by model, Firecrawl, and Browser Use, run-to-run variance, and replay vs. live labels).
+  - Report Section 4 drafted in `docs/report_section_4.md`.
+- **Remaining / Gated**:
+  - Live (`--model real`) `Inj-b` 3x chat runs and `C8` 3x live subset runs did not execute (`OPENAI_API_KEY` not set; live budget/approval pending).
+
+## Handover: Leg 2 (Person C) -> Leg 3 (Person D)
+- **Done:** Gold label files in `eval/gold/`, 33-scenario suite (`s01`–`s33`) across 3 replay runs (`replay_run1..3`, 33/33 passed each), 12 injection scenarios (`i01`–`i12`) across 3 runs (`inj_run1..3`, 12/12 passed each, 0 safety violations), `C6` metrics in `summary.json`, `C7` softer fabrication checks/tests, plots in `eval/results/`, and `C8` evaluation cost/variance summary in `cost_model.md`.
+- **Not done / Known limits:** Recorded runs in `replay_run1..3` and `inj_run1..3` reflect local/replay runs with `$0.00` recorded API spend (`mean_cost_usd = 0.0`); `s08_portal_fail_once` passes (`passed: true`) but records `step_accuracy: 0.0`, `tool_call_precision: 0.0`, and `7` wasted steps due to expected-step matching on retry (`mean_step_accuracy = 0.9697`, `mean_wasted_steps = 0.2121`).
+- **What Person D needs:** Result summaries/tables and plots in `eval/results/`, `cost_model.md` (Section 11), injection pass/safety results (`inj_run1..3`), and the known limits above for `errors.md`, `threat_model.md`, and the 4-page report.
