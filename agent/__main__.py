@@ -74,8 +74,8 @@ FAKE_WALKTHROUGH_RESPONSES = [
         "type": "tool_call",
         "tool_name": "submit_application",
         "arguments": {
-            "cv_path": "sandbox/output/cv_job_001.md",
-            "cover_letter_path": "sandbox/output/cover_letter_job_001.md",
+            "cv_path": "cv_job_001.md",
+            "cover_letter_path": "cover_letter_job_001.md",
             "job_id": "job_001",
         },
         "usage": {"input_tokens": 10, "output_tokens": 5},
@@ -152,8 +152,8 @@ SEARCH_THEN_TAILOR_RESPONSES = [
         "type": "tool_call",
         "tool_name": "submit_application",
         "arguments": {
-            "cv_path": "sandbox/output/cv_job_001.md",
-            "cover_letter_path": "sandbox/output/cover_letter_job_001.md",
+            "cv_path": "cv_job_001.md",
+            "cover_letter_path": "cover_letter_job_001.md",
             "job_id": "job_001",
         },
         "usage": {"input_tokens": 10, "output_tokens": 5},
