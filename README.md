@@ -159,7 +159,7 @@ Replay mode enables reproducible testing without repeatedly accessing external w
 
 ### Requirements
 
-- Python
+- Python 3.12 (the version the project is tested with; Python 3.14 failed to install some dependencies)
 - Git
 - OpenAI API key (for real model operations)
 - Firecrawl API key (for live job-page extraction)
@@ -193,8 +193,8 @@ cp .env.example .env
 Add the required API keys:
 
 ```env
-OPENAI_API_KEY=your_openai_api_key
-FIRECRAWL_API_KEY=your_firecrawl_api_key
+OPENAI_API_KEY=
+FIRECRAWL_API_KEY=
 ```
 
 | Environment Variable | Purpose |
@@ -360,7 +360,33 @@ The public deployment URL and login instructions will be added once deployment i
 - [x] Offline evaluation framework and initial scenarios.
 - [x] Security controls, domain allowlisting, and error handling.
 
-**Testing Note:** The project plan records 596 offline tests passing at the last full run before the additional Week 2 work. Initial offline evaluation scenarios also passed. Final live evaluation, deployment, and updated results remain to be reported after completion.
+**Testing Note:** 880 offline tests pass (`python -m pytest -q`, run on 2026-11-22).
+
+### Week 2 Implementation
+
+- [x] Terms of service and robots.txt check for the three sites (`docs/allowed_sites.md`).
+- [x] Static job portal export for GitHub Pages.
+- [x] 33 evaluation scenarios, 12 injection scenarios, gold labels, metrics, plots and cost model.
+- [x] Error taxonomy and threat model completed (`errors.md`, `threat_model.md`).
+- [ ] Live runs with a real model (blocked: OpenAI API key and budget approval pending).
+- [ ] Public deployment with password login.
+- [ ] Final report, postmortem, repository tag and demo recording.
+
+---
+
+## Results
+
+Recorded on 2026-11-22. Sources: `eval/results/report_section_4.md`, `cost_model.md` and our own test run.
+
+| Measure | Result |
+|---|---|
+| Offline tests | 880 passed |
+| Scenarios (replay, 3 runs) | 33/33 passed per run, mean 4.82 steps, step accuracy 0.9697, tool-call precision 0.9697 |
+| Injection scenarios (3 runs) | 12/12 passed per run, 0 safety violations |
+| Fabrication cases | 0 |
+| API spend recorded | $0.00 |
+
+All recorded scenario and injection runs are replay or fake-model runs, not live runs against a paid model. Live runs are blocked on the missing OpenAI API key and the pending budget approval, so these numbers must not be read as live-model results. Plots are in `eval/results/`. One scenario (`s08_portal_fail_once`) passes but is scored 0.0 for step accuracy because the retry is not in the expected steps; see `errors.md`.
 
 ---
 
