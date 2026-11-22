@@ -4,6 +4,7 @@ Pure logic helpers for the CV-tailoring agent UI.
 No Chainlit imports here — this module must be testable offline.
 """
 
+import hmac
 import re
 from pathlib import Path
 
@@ -186,3 +187,25 @@ def get_output_files() -> list[str]:
     for pattern in ("cv_*.md", "cover_letter_*.md"):
         files.extend(sorted(p.name for p in output_dir.glob(pattern)))
     return files
+
+
+# ---------------------------------------------------------------------------
+# Chat login (used only when APP_USERNAME and APP_PASSWORD are set)
+# ---------------------------------------------------------------------------
+
+def check_credentials(
+    username: str,
+    password: str,
+    expected_username: str | None,
+    expected_password: str | None,
+) -> bool:
+    """Constant-time check of a login attempt. False if either expected value is unset or empty."""
+    if not expected_username or not expected_password:
+        return False
+    user_ok = hmac.compare_digest(
+        (username or "").encode("utf-8"), expected_username.encode("utf-8")
+    )
+    pass_ok = hmac.compare_digest(
+        (password or "").encode("utf-8"), expected_password.encode("utf-8")
+    )
+    return user_ok and pass_ok

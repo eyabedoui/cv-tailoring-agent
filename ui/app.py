@@ -21,6 +21,7 @@ from agent.logger import AgentLogger
 from agent.session import Session
 from ui.logic import (
     APPROVAL_PENDING_REPLY,
+    check_credentials,
     format_status_line,
     format_stop_message,
     get_output_files,
@@ -73,6 +74,27 @@ def _fake_model():
 
 
 # ---------------------------------------------------------------------------
+# Password login (public deployment)
+# Enabled only when APP_USERNAME and APP_PASSWORD are set. Chainlit also needs
+# CHAINLIT_AUTH_SECRET to sign sessions. Credentials come from the host's
+# environment settings and are never stored in the repository.
+# ---------------------------------------------------------------------------
+
+if os.environ.get("APP_USERNAME") and os.environ.get("APP_PASSWORD"):
+
+    @cl.password_auth_callback
+    def auth_callback(username: str, password: str):
+        if check_credentials(
+            username,
+            password,
+            os.environ.get("APP_USERNAME"),
+            os.environ.get("APP_PASSWORD"),
+        ):
+            return cl.User(identifier=username, metadata={"role": "candidate"})
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Chat lifecycle
 # ---------------------------------------------------------------------------
 
@@ -100,11 +122,21 @@ async def on_chat_start():
         done: concurrent.futures.Future = concurrent.futures.Future()
 
         async def _post() -> None:
+            # Mark the approval as pending, then let the worker thread carry on
+            # (it waits on the checkpoint queue, not here).
+            cl.user_session.set("approval_pending", True)
+            done.set_result(None)
             try:
-                await _show_approval_request(review_text)
-                done.set_result(None)
-            except Exception as exc:
-                done.set_exception(exc)
+                approved = await _ask_approval(review_text)
+            except Exception:
+                approved = False  # any failure counts as "not approved"
+            finally:
+                cl.user_session.set("approval_pending", False)
+            if approved:
+                await cl.Message(content="✅ **Approved.** Submitting…").send()
+            else:
+                await cl.Message(content="❌ **Not approved.** Submission cancelled.").send()
+            checkpoint.submit_decision(approved)
 
         # Schedule _post on the event loop, restoring the Chainlit context.
         if ctx is not None:
@@ -114,7 +146,7 @@ async def on_chat_start():
         else:
             asyncio.run_coroutine_threadsafe(_post(), loop)
 
-        done.result(timeout=30)  # Block the worker until the message is posted.
+        done.result(timeout=30)  # Block the worker until the approval is pending.
 
     checkpoint = ChatCheckpoint(
         present_fn=present_fn,
@@ -144,48 +176,32 @@ async def on_chat_end():
 
 
 # ---------------------------------------------------------------------------
-# Approval actions (the ONLY path that can approve a submission)
+# Approval (the ONLY path that can approve a submission)
+#
+# AskActionMessage is Chainlit's built-in "wait for the user to click" prompt.
+# Ordinary action buttons are greyed out while a message is still being processed,
+# and the agent is waiting for approval inside that processing, so they could
+# never be clicked. A typed "yes" never approves: only a click on this prompt does.
 # ---------------------------------------------------------------------------
 
-@cl.action_callback("approve_submission")
-async def on_approve(action: cl.Action):
-    if not cl.user_session.get("approval_pending", False):
-        return  # Idempotent — ignore second click after timeout/reject
-    cl.user_session.set("approval_pending", False)
-    await action.remove()
-    await cl.Message(content="✅ **Approved.** Submitting…").send()
-    checkpoint: ChatCheckpoint = cl.user_session.get("checkpoint")
-    checkpoint.submit_decision(True)
-
-
-@cl.action_callback("reject_submission")
-async def on_reject(action: cl.Action):
-    if not cl.user_session.get("approval_pending", False):
-        return
-    cl.user_session.set("approval_pending", False)
-    await action.remove()
-    await cl.Message(content="❌ **Rejected.** Submission cancelled.").send()
-    checkpoint: ChatCheckpoint = cl.user_session.get("checkpoint")
-    checkpoint.submit_decision(False)
-
-
-async def _show_approval_request(review_text: str) -> None:
-    """Post the review text with Approve / Reject buttons."""
-    cl.user_session.set("approval_pending", True)
+async def _ask_approval(review_text: str) -> bool:
+    """Show the review with Approve / Reject buttons and wait for the click."""
     safe = render_untrusted(review_text, max_chars=2000)
-    actions = [
-        cl.Action(name="approve_submission", payload={"value": "approve"}, label="✅ Approve"),
-        cl.Action(name="reject_submission",  payload={"value": "reject"},  label="❌ Reject"),
-    ]
-    msg = await cl.Message(
+    res = await cl.AskActionMessage(
         content=(
             "**Application Review**\n\n"
             + safe
             + "\n\n*Use the buttons below to approve or reject this submission.*"
         ),
-        actions=actions,
+        actions=[
+            cl.Action(name="ask_approve", payload={"value": "approve"}, label="✅ Approve"),
+            cl.Action(name="ask_reject", payload={"value": "reject"}, label="❌ Reject"),
+        ],
+        # Slightly longer than the checkpoint's own timeout, so the checkpoint decides first.
+        timeout=int(CHECKPOINT_TIMEOUT_SECONDS) + 5,
+        raise_on_timeout=False,
     ).send()
-    cl.user_session.set("approval_msg", msg)
+    return bool(res) and res.get("name") == "ask_approve"
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +241,7 @@ async def on_message(message: cl.Message):
     session._on_step = on_step_fn
 
     # Run session.send in the thread pool so the event loop is never blocked.
-    send_task = asyncio.create_task(
-        loop.run_in_executor(None, session.send, text)
-    )
+    send_task = loop.run_in_executor(None, session.send, text)
 
     # Drain step events while the agent runs.
     while not send_task.done():
