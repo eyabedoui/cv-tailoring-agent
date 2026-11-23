@@ -1,15 +1,30 @@
 # Demo script (about 6 minutes)
 
-Run this on the public URL. Status: **public URL TBD**. Rehearse it twice before the demo and record one clean run as the backup.
+Public URL: https://cv-tailoring-agent.onrender.com (login `nouha`, password shared privately). Rehearse it twice before the demo and record one clean run as the backup.
+
+**Two ways to run it.** The deployed site uses the fake model (`CV_AGENT_MODEL=fake`), which replays one scripted run per browser session and ignores what you type. Use the **Public demo (fake model)** section below. The full 8-step table needs the real model (`CV_AGENT_MODEL=openai` with a key and an approved budget); until that is approved, steps 2 and 4 to 6 are shown from the eval results instead.
+
+## Public demo (fake model, about 3 minutes)
+
+Open the site a minute early (the free plan sleeps after 15 minutes idle). Refresh the page before each run to get a fresh script.
+
+1. Say: the login stops strangers. (Show the login page in a private window.)
+2. Type `Tailor my CV for the job at http://127.0.0.1:5000/jobs/job_001`. Point out the tool steps and that nothing is submitted yet.
+3. Click **Approve**. Point out that only the click submits and the portal record decides success.
+4. Type `/files` to show the saved CV and cover letter.
+5. Refresh the page, send the same line, click **Reject**. Nothing is submitted.
+6. For the poor match (job_005), the injection posting (job_901) and the linkedin refusal, show the eval results (33/33 scenarios, 12/12 injection) in the report, section 4.
+
+## Full demo (real model)
 
 ## Before the demo (10 minutes)
 
-- [ ] Host settings: `WEB_MODE=replay`, `CV_AGENT_MODEL=openai`, `OPENAI_API_KEY` set, `API_BUDGET_USD` set to the approved amount. With `CV_AGENT_MODEL=fake` the chat only replays one scripted run and ignores what you type, so it cannot show steps 2 to 4.
+- [ ] Real-model demo only: host settings `WEB_MODE=replay`, `CV_AGENT_MODEL=openai`, `OPENAI_API_KEY` set, `API_BUDGET_USD` set to the approved amount. With `CV_AGENT_MODEL=fake` the chat only replays one scripted run and ignores what you type, so it cannot show steps 2 to 4.
 - [ ] Provider dashboard limits are set (OpenAI). Nothing live runs until the team and the instructor have approved the budget (`cost_model.md`, section 8).
 - [ ] Restart the service so the sandbox is clean (`start.sh` resets it on every start).
 - [ ] Open the URL in a private window. The login page must appear first. Log in.
-- [ ] `python scripts/scan_secrets.py` is clean and the tag exists.
-- [ ] Screen recording is ready (Cmd+Shift+5 on a Mac). Backup recording saved at: **TBD**.
+- [x] `python scripts/scan_secrets.py` is clean and the tag `v1.0` exists.
+- [ ] Screen recording is ready (Cmd+Shift+5 on a Mac). Backup recording saved at: **TBD (add the link)**.
 
 ## Steps
 
