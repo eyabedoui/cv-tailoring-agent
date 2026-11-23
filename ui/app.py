@@ -12,11 +12,14 @@ import asyncio
 import concurrent.futures
 import contextvars
 import os
+from pathlib import Path
 
 import chainlit as cl
 
 from agent.chat_checkpoint import ChatCheckpoint
 from agent.config import CHECKPOINT_TIMEOUT_SECONDS
+from agent.cv_upload import CvUploadError, delete_session_cv, save_session_cv
+from agent.tools.reads import CV_PATH_OVERRIDE
 from agent.logger import AgentLogger
 from agent.session import Session
 from ui.logic import (
@@ -44,6 +47,7 @@ Welcome! I'm your **CV-tailoring agent**.
 
 > **I never submit anything without your explicit approval click.**
 
+Attach your CV as a `.md` or `.txt` file to use it as the master CV for this chat.
 Type `/new` to reset the session, `/status` for current info, `/files` to list generated files.
 """
 
@@ -97,6 +101,13 @@ if os.environ.get("APP_USERNAME") and os.environ.get("APP_PASSWORD"):
 # ---------------------------------------------------------------------------
 # Chat lifecycle
 # ---------------------------------------------------------------------------
+
+@cl.on_chat_end
+def on_chat_end():
+    sid = cl.user_session.get("id")
+    if sid:
+        delete_session_cv(sid)
+
 
 @cl.on_chat_start
 async def on_chat_start():
@@ -223,6 +234,22 @@ async def on_message(message: cl.Message):
         await cl.Message(content=APPROVAL_PENDING_REPLY).send()
         return
 
+    # --- optional CV upload (text files only, stored per chat session) ---
+    uploaded = [el for el in (message.elements or []) if getattr(el, "path", None)]
+    if uploaded:
+        try:
+            data = open(uploaded[0].path, "rb").read()
+            cv_path = save_session_cv(cl.user_session.get("id"), uploaded[0].name, data)
+            cl.user_session.set("cv_path", str(cv_path))
+            await cl.Message(
+                content=f"✅ CV `{uploaded[0].name}` received. I will use it as your master CV in this chat only."
+            ).send()
+        except CvUploadError as exc:
+            await cl.Message(content=f"⚠️ CV not used: {exc}").send()
+            return
+        if not text:
+            return
+
     session: Session = cl.user_session.get("session")
     loop: asyncio.AbstractEventLoop = cl.user_session.get("loop")
     ctx_holder: dict = cl.user_session.get("ctx_holder")
@@ -241,7 +268,12 @@ async def on_message(message: cl.Message):
     session._on_step = on_step_fn
 
     # Run session.send in the thread pool so the event loop is never blocked.
-    send_task = loop.run_in_executor(None, session.send, text)
+    # The worker runs in its own context copy so this chat's uploaded CV (if any)
+    # is the one read_master_cv sees, and no other chat's.
+    cv_override = cl.user_session.get("cv_path")
+    CV_PATH_OVERRIDE.set(Path(cv_override) if cv_override else None)
+    send_ctx = contextvars.copy_context()
+    send_task = loop.run_in_executor(None, send_ctx.run, session.send, text)
 
     # Drain step events while the agent runs.
     while not send_task.done():
