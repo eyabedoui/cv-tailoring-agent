@@ -342,7 +342,9 @@ Replay mode is the default deployment mode. Live mode is enabled only for demons
 
 API keys are configured through the hosting provider's environment settings and must never be committed to the repository.
 
-The public deployment URL and login instructions will be added once deployment is complete.
+**Public URL:** https://cv-tailoring-agent.onrender.com
+
+Login: username `nouha`; the password is shared privately with the team and the instructor (it is not stored in this repository). The site runs on Render's free plan in replay mode with the fake model, so it goes to sleep after 15 minutes without visitors and the first visit afterwards takes about a minute. Refresh the page to start a fresh scripted walkthrough (the fake model plays one script per browser session).
 
 ---
 
@@ -369,7 +371,7 @@ The public deployment URL and login instructions will be added once deployment i
 - [x] 33 evaluation scenarios, 12 injection scenarios, gold labels, metrics, plots and cost model.
 - [x] Error taxonomy and threat model completed (`errors.md`, `threat_model.md`).
 - [ ] Live runs with a real model (blocked: OpenAI API key and budget approval pending).
-- [ ] Public deployment with password login.
+- [x] Public deployment with password login.
 - [ ] Final report, postmortem, repository tag and demo recording.
 
 ---
