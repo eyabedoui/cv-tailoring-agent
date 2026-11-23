@@ -29,3 +29,5 @@ venv/
 chainlit.md
 
 sandbox/usage_log.jsonl
+
+sandbox/uploads/
