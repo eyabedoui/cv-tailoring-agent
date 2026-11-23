@@ -1,6 +1,8 @@
 # Deployment
 
-Status: **not deployed yet.** Public URL: TBD (add it here and in the README once the host is running).
+Status: **deployed** on Render (free plan, Docker, `WEB_MODE=replay`, `CV_AGENT_MODEL=fake`). Public URL: https://cv-tailoring-agent.onrender.com
+
+Checked on 2026-11-23 through the public URL: login (wrong password refused, no page without login), job_001 walkthrough, Approve submits, Reject cancels, `/files` lists the saved CV and cover letter. Limits: the free plan sleeps after 15 minutes idle (about 1 minute to wake); the fake model plays one script per browser session, so refresh the page for a new run; the linkedin refusal and job_901 injection are covered by the eval results, not by the fake-model demo.
 
 ## What runs where
 
