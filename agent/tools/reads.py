@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Callable
 
@@ -31,6 +32,9 @@ from agent.posting_cleaner import clean_posting
 
 _client_instance = None
 _cv_path: Path | None = None
+
+# Per-session override (set by the chat UI for an uploaded CV; None = sandbox master_cv.md).
+CV_PATH_OVERRIDE: ContextVar[Path | None] = ContextVar("cv_path_override", default=None)
 
 
 def _get_client():
@@ -56,6 +60,10 @@ def _get_client():
 
 def _get_cv_path() -> Path:
     global _cv_path
+
+    override = CV_PATH_OVERRIDE.get()
+    if override is not None:
+        return override
 
     if _cv_path is None:
         _cv_path = Path(SANDBOX_DIR) / "master_cv.md"
