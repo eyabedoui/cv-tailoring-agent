@@ -29,3 +29,9 @@ venv/
 chainlit.md
 
 sandbox/usage_log.jsonl
+
+.env
+sandbox/state/chat_history.db
+.chainlit/
+chainlit.md
+__pycache__/

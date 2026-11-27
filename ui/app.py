@@ -6,6 +6,10 @@ Run with:  chainlit run ui/app.py
 Model selection via CV_AGENT_MODEL env var:
   "fake"   — scripted walkthrough, no API key required (default)
   "openai" — real OpenAI model, requires OPENAI_API_KEY
+
+Chat history (ChatGPT-style sidebar) needs:
+  - CHAINLIT_AUTH_SECRET in .env   (run: chainlit create-secret)
+  - sandbox/state/chat_history.db  (run: python3 scripts/init_db.py)
 """
 
 import asyncio
@@ -14,6 +18,8 @@ import contextvars
 import os
 
 import chainlit as cl
+from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
+from chainlit.types import ThreadDict
 
 from agent.chat_checkpoint import ChatCheckpoint
 from agent.config import CHECKPOINT_TIMEOUT_SECONDS
@@ -48,6 +54,24 @@ Type `/new` to reset the session, `/status` for current info, `/files` to list g
 
 
 # ---------------------------------------------------------------------------
+# Persistence + login (enables the chat-history sidebar)
+# ---------------------------------------------------------------------------
+
+@cl.data_layer
+def get_data_layer():
+    return SQLAlchemyDataLayer(
+        conninfo="sqlite+aiosqlite:///sandbox/state/chat_history.db"
+    )
+
+
+@cl.password_auth_callback
+def auth_callback(username: str, password: str):
+    if (username, password) == ("asma", "change-me"):  # choose your own
+        return cl.User(identifier=username)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Model factory
 # ---------------------------------------------------------------------------
 
@@ -76,8 +100,8 @@ def _fake_model():
 # Chat lifecycle
 # ---------------------------------------------------------------------------
 
-@cl.on_chat_start
-async def on_chat_start():
+async def _init_session():
+    """Create a fresh agent session for the current chat (new or resumed)."""
     model, warning = _build_model()
     if warning:
         await cl.Message(content=f"⚠️ {warning}").send()
@@ -131,7 +155,18 @@ async def on_chat_start():
     cl.user_session.set("checkpoint", checkpoint)
     cl.user_session.set("loop", loop)
 
+
+@cl.on_chat_start
+async def on_chat_start():
+    await _init_session()
     await cl.Message(content=_WELCOME).send()
+
+
+@cl.on_chat_resume
+async def on_chat_resume(thread: ThreadDict):
+    # Reopening an old chat from the sidebar: Chainlit redraws the old
+    # messages itself. We only rebuild a fresh agent session behind it.
+    await _init_session()
 
 
 @cl.on_chat_end
