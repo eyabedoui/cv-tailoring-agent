@@ -397,3 +397,8 @@ into a synthetic submit step.
 - Finding: the fake model plays one script per browser session. /new resets the session but not the script, so later messages end with "FakeModel has no scripted responses left" (nothing is submitted). Workaround: refresh the page for a fresh run.
 - Finding: linkedin refusal and job_901 injection cannot be shown on the public fake-model site, because the fake model ignores user input. They are covered by eval (s-scenarios and i01-i12, replay).
 - Free plan: the service sleeps after 15 minutes without traffic; first visit afterwards takes about a minute.
+
+## 2026-11-27 — Repository history cleaned
+
+- At the instructor's request, the history of `main` was rewritten to correct the contributor list. Commit IDs after `245deb9` changed. The files did not change, and the tag `v1.0` was not moved.
+- Teammates: after this, use `git fetch origin && git checkout main && git reset --hard origin/main` (only if you have no unpushed commits on main). Do not `git pull` an old local `main`.
